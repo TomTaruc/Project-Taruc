@@ -79,7 +79,6 @@ const Register = () => {
                 value={formData.name}
                 onChange={handleChange}
                 className={`input-field ${errors.name ? 'input-error' : ''}`}
-                placeholder="John Doe"
               />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
             </div>
@@ -95,7 +94,6 @@ const Register = () => {
                 value={formData.email}
                 onChange={handleChange}
                 className={`input-field ${errors.email ? 'input-error' : ''}`}
-                placeholder="john@example.com"
               />
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
             </div>
@@ -111,7 +109,7 @@ const Register = () => {
                 value={formData.phone}
                 onChange={handleChange}
                 className={`input-field ${errors.phone ? 'input-error' : ''}`}
-                placeholder="555-0123"
+                placeholder="09XXXXXXXXX"
               />
               {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
             </div>

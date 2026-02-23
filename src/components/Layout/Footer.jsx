@@ -64,11 +64,11 @@ const Footer = () => {
             <ul className="space-y-3">
               <li className="flex items-start gap-2 text-sm">
                 <MapPin className="w-4 h-4 mt-1 text-primary flex-shrink-0" />
-                <span>123 Counseling Center, University Campus</span>
+                <span>Brgy. Sta. Ana, Taytay, Rizal, Philippines</span>
               </li>
               <li className="flex items-center gap-2 text-sm">
                 <Phone className="w-4 h-4 text-primary flex-shrink-0" />
-                <span>+1 (555) 123-4567</span>
+                <span>+63 912 345 6789</span>
               </li>
               <li className="flex items-center gap-2 text-sm">
                 <Mail className="w-4 h-4 text-primary flex-shrink-0" />
@@ -81,6 +81,9 @@ const Footer = () => {
         <div className="border-t border-gray-800 mt-8 pt-8 text-center">
           <p className="text-sm text-gray-400">
             © {new Date().getFullYear()} TheraPath. All rights reserved. Built with care for your wellbeing.
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Made by Tom Taruc
           </p>
         </div>
       </div>

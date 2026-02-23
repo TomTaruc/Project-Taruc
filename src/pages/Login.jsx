@@ -74,7 +74,6 @@ const Login = () => {
                 value={formData.email}
                 onChange={handleChange}
                 className={`input-field ${errors.email ? 'input-error' : ''}`}
-                placeholder="john@example.com"
               />
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
             </div>
@@ -130,7 +129,7 @@ const Login = () => {
               </div>
               <div className="p-3 bg-gray-50 rounded-lg">
                 <p className="font-medium text-gray-700">User Account:</p>
-                <p className="text-gray-600">john@example.com / user123</p>
+                <p className="text-gray-600">juan@example.com / user123</p>
               </div>
             </div>
           </div>

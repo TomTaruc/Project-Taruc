@@ -23,6 +23,33 @@ export const validateDate = (date) => {
   return selectedDate >= today
 }
 
+export const isTimeInPast = (dateStr, timeStr) => {
+  if (!dateStr || !timeStr) return false
+  
+  const selectedDate = new Date(dateStr)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  selectedDate.setHours(0, 0, 0, 0)
+  
+  if (selectedDate.getTime() !== today.getTime()) {
+    return false
+  }
+  
+  const [time, period] = timeStr.split(' ')
+  let [hours, minutes] = time.split(':').map(Number)
+  
+  if (period === 'PM' && hours !== 12) {
+    hours += 12
+  } else if (period === 'AM' && hours === 12) {
+    hours = 0
+  }
+  
+  const selectedDateTime = new Date()
+  selectedDateTime.setHours(hours, minutes, 0, 0)
+  
+  return selectedDateTime < new Date()
+}
+
 export const validateAppointmentForm = (data) => {
   const errors = {}
 
@@ -52,6 +79,8 @@ export const validateAppointmentForm = (data) => {
 
   if (!validateRequired(data.time)) {
     errors.time = 'Time slot is required'
+  } else if (isTimeInPast(data.date, data.time)) {
+    errors.time = 'Selected time has already passed'
   }
 
   if (!validateRequired(data.type)) {

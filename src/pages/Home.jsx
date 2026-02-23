@@ -1,8 +1,18 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Calendar, Heart, Shield, Users, ArrowRight, CheckCircle } from 'lucide-react'
+import { Calendar, Heart, Shield, Users, ArrowRight, CheckCircle, Mail, Phone, MapPin } from 'lucide-react'
+import { useState } from 'react'
+import showToast from '../components/Toast'
 
 const Home = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    subject: '',
+    message: '',
+  })
+  const [errors, setErrors] = useState({})
+
   const features = [
     {
       icon: Calendar,
@@ -34,6 +44,52 @@ const Home = () => {
     'Crisis Intervention',
     'Anonymous Sessions',
   ]
+
+  const communityImages = [
+    {
+      src: 'https://images.unsplash.com/photo-1582213782179-e0617874f377?w=600&h=400&fit=crop',
+      alt: 'Community mental health support',
+    },
+    {
+      src: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&h=400&fit=crop',
+      alt: 'Group counseling session',
+    },
+    {
+      src: 'https://images.unsplash.com/photo-1573164713988-8665fc963095?w=600&h=400&fit=crop',
+      alt: 'Mental wellness activities',
+    },
+  ]
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }))
+    }
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    const newErrors = {}
+
+    if (!formData.name.trim()) newErrors.name = 'Name is required'
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Invalid email format'
+    }
+    if (!formData.subject.trim()) newErrors.subject = 'Subject is required'
+    if (!formData.message.trim()) newErrors.message = 'Message is required'
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      showToast.error('Please fix the errors in the form')
+      return
+    }
+
+    showToast.success('Message sent successfully! We will get back to you soon.')
+    setFormData({ name: '', email: '', subject: '', message: '' })
+  }
 
   return (
     <div className="min-h-screen">
@@ -183,6 +239,172 @@ const Home = () => {
         </div>
       </section>
 
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+              Community Mental Health
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Supporting the mental wellness of our community through accessible counseling and group activities.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {communityImages.map((image, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="rounded-lg overflow-hidden shadow-lg"
+              >
+                <img
+                  src={image.src}
+                  alt={image.alt}
+                  className="w-full h-64 object-cover"
+                />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+              Contact Us
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Have questions or need assistance? Reach out to us and we'll be happy to help.
+            </p>
+          </motion.div>
+
+          <div className="grid lg:grid-cols-2 gap-12">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="card"
+            >
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">Send us a message</h3>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    className={`input-field ${errors.name ? 'input-error' : ''}`}
+                  />
+                  {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={`input-field ${errors.email ? 'input-error' : ''}`}
+                  />
+                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                  <input
+                    type="text"
+                    name="subject"
+                    value={formData.subject}
+                    onChange={handleChange}
+                    className={`input-field ${errors.subject ? 'input-error' : ''}`}
+                  />
+                  {errors.subject && <p className="text-red-500 text-xs mt-1">{errors.subject}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                  <textarea
+                    name="message"
+                    value={formData.message}
+                    onChange={handleChange}
+                    rows={4}
+                    className={`input-field resize-none ${errors.message ? 'input-error' : ''}`}
+                  />
+                  {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
+                </div>
+
+                <button type="submit" className="btn-primary w-full">
+                  Send Message
+                </button>
+              </form>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="space-y-6"
+            >
+              <div className="card">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Contact Information</h3>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-gray-900">Address</p>
+                      <p className="text-gray-600">Brgy. Sta. Ana, Taytay, Rizal, Philippines</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Phone className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-gray-900">Phone</p>
+                      <p className="text-gray-600">+63 912 345 6789</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Mail className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-gray-900">Email</p>
+                      <p className="text-gray-600">info@therapath.com</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card p-0 overflow-hidden">
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3861.4738!2d121.1327!3d14.5673!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTTCsDM0JzAyLjMiTiAxMjHCsDA3JzU3LjciRQ!5e0!3m2!1sen!2sph!4v1234567890"
+                  width="100%"
+                  height="300"
+                  style={{ border: 0 }}
+                  allowFullScreen=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="TheraPath Location"
+                ></iframe>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       <section className="py-20 bg-gradient-to-br from-primary to-primary-dark text-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
@@ -205,10 +427,10 @@ const Home = () => {
                 Book Appointment
               </Link>
               <a
-                href="tel:+15551234567"
+                href="tel:+639123456789"
                 className="bg-white/10 backdrop-blur-sm text-white px-8 py-4 rounded-lg font-medium hover:bg-white/20 transition-all duration-200"
               >
-                Call: (555) 123-4567
+                Call: +63 912 345 6789
               </a>
             </div>
           </motion.div>

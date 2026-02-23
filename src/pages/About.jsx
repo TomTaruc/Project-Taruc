@@ -34,22 +34,22 @@ const About = () => {
 
   const team = [
     {
-      name: 'Dr. Sarah Williams',
+      name: 'Dr. Aliyah Felipe',
       role: 'Lead Counselor - Academic',
       credentials: 'Ph.D. in Counseling Psychology',
-      image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop',
+      image: 'https://images.unsplash.com/photo-1594824436951-37c0e2f6e4e1?w=400&h=400&fit=crop',
     },
     {
-      name: 'Dr. Michael Chen',
+      name: 'Dr. Erika Cruz',
       role: 'Career Counselor',
       credentials: 'M.A. in Career Development',
-      image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop',
+      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop',
     },
     {
-      name: 'Dr. Emily Rodriguez',
+      name: 'Dr. Ariel Ocampo',
       role: 'Personal Counselor',
       credentials: 'Psy.D. in Clinical Psychology',
-      image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop',
+      image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop',
     },
   ]
 
