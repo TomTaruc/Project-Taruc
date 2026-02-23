@@ -47,16 +47,16 @@ const Home = () => {
 
   const communityImages = [
     {
-      src: 'https://images.unsplash.com/photo-1582213782179-e0617874f377?w=600&h=400&fit=crop',
-      alt: 'Community mental health support',
+      src: 'https://images.pexels.com/photos/8466665/pexels-photo-8466665.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+      alt: 'Teaching Filipino children in rural area',
     },
     {
-      src: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&h=400&fit=crop',
-      alt: 'Group counseling session',
+      src: 'https://images.pexels.com/photos/8613089/pexels-photo-8613089.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+      alt: 'Filipino kids mental health support',
     },
     {
-      src: 'https://images.unsplash.com/photo-1573164713988-8665fc963095?w=600&h=400&fit=crop',
-      alt: 'Mental wellness activities',
+      src: 'https://images.pexels.com/photos/5905857/pexels-photo-5905857.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+      alt: 'Community counseling activities with Filipino children',
     },
   ]
 
@@ -251,7 +251,7 @@ const Home = () => {
               Community Mental Health
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Supporting the mental wellness of our community through accessible counseling and group activities.
+              Sumusuporta sa mental wellness ng ating komunidad sa pamamagitan ng accessible counseling at group activities para sa lahat ng edad.
             </p>
           </motion.div>
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { User, Mail, Lock, Phone, Eye, EyeOff, Heart } from 'lucide-react'
+import { User, Mail, Lock, Phone, Eye, EyeOff, Heart, Shield } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { validateRegisterForm } from '../utils/validation'
 import showToast from '../components/Toast'
@@ -11,6 +11,7 @@ const Register = () => {
   const { register } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -31,7 +32,7 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     const validation = validateRegisterForm(formData)
     if (!validation.isValid) {
       setErrors(validation.errors)
@@ -40,11 +41,12 @@ const Register = () => {
     }
 
     setIsSubmitting(true)
-    const result = register(formData)
-    
+    const registrationData = { ...formData, role: isAdmin ? 'admin' : 'user' }
+    const result = register(registrationData)
+
     if (result.success) {
       showToast.success('Account created successfully!')
-      navigate('/user/dashboard')
+      navigate(isAdmin ? '/admin/dashboard' : '/user/dashboard')
     } else {
       showToast.error(result.message)
     }
@@ -68,6 +70,29 @@ const Register = () => {
 
         <div className="glass-card">
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 rounded-lg">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={!isAdmin}
+                  onChange={() => setIsAdmin(false)}
+                  className="w-4 h-4 text-primary focus:ring-primary"
+                />
+                <User className="w-4 h-4" />
+                <span className="text-sm font-medium text-gray-700">Register as User</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={isAdmin}
+                  onChange={() => setIsAdmin(true)}
+                  className="w-4 h-4 text-primary focus:ring-primary"
+                />
+                <Shield className="w-4 h-4" />
+                <span className="text-sm font-medium text-gray-700">Register as Admin</span>
+              </label>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <User className="w-4 h-4 inline mr-1" />

@@ -60,9 +60,15 @@ const Sidebar = () => {
 
   const links = user?.role === 'admin' ? adminLinks : userLinks
 
+  const handleLogoClick = () => {
+    const dashboardPath = user?.role === 'admin' ? '/admin/dashboard' : '/user/dashboard'
+    navigate(dashboardPath)
+    setIsOpen(false)
+  }
+
   const sidebarContent = (
     <div className="flex flex-col h-full">
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors duration-200" onClick={handleLogoClick}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-dark rounded-lg flex items-center justify-center">
             <Heart className="w-6 h-6 text-white" />
@@ -73,30 +79,6 @@ const Sidebar = () => {
           </div>
         </div>
       </div>
-
-      {user?.role === 'admin' && (
-        <div className="p-4 border-b border-gray-200">
-          <div className="text-xs text-gray-500 mb-2 font-medium">LIVE STATS TODAY</div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="live-stat-mini">
-              <Calendar className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold">{liveStatsToday.todayAppointments}</span>
-            </div>
-            <div className="live-stat-mini">
-              <Clock className="w-4 h-4 text-green-600" />
-              <span className="text-sm font-semibold">{liveStatsToday.activeSessions}</span>
-            </div>
-            <div className="live-stat-mini">
-              <Inbox className="w-4 h-4 text-yellow-600" />
-              <span className="text-sm font-semibold">{liveStatsToday.pendingInquiries}</span>
-            </div>
-            <div className="live-stat-mini">
-              <Phone className="w-4 h-4 text-red-600" />
-              <span className="text-sm font-semibold">{liveStatsToday.emergencyCalls}</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {links.map((link) => (
