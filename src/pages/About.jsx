@@ -32,24 +32,28 @@ const About = () => {
     { value: '24/7', label: 'Crisis Support' },
   ]
 
+  // Add the Vite BASE_URL variable here
+  const baseUrl = import.meta.env.BASE_URL;
+
+  // Updated images with BASE_URL
   const team = [
     {
       name: 'Dr. Aliyah Felipe',
       role: 'Lead Counselor - Academic',
       credentials: 'Ph.D. in Counseling Psychology',
-      image: '/320x400.jpeg',
+      image: `${baseUrl}320x400.jpeg`,
     },
     {
       name: 'Dr. Erika Cruz',
       role: 'Career Counselor',
       credentials: 'M.A. in Career Development',
-      image: '/OIP (1).jpg',
+      image: `${baseUrl}OIP (1).jpg`,
         },
     {
       name: 'Dr. Ariel Ocampo',
       role: 'Personal Counselor',
       credentials: 'Psy.D. in Clinical Psychology',
-      image: '/Bernardo_Fellow2019.jpg',
+      image: `${baseUrl}Bernardo_Fellow2019.jpg`,
     },
   ]
 

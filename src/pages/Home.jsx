@@ -45,18 +45,21 @@ const Home = () => {
     'Anonymous Sessions',
   ]
 
-  // Updated to show "more Filipino" community and student images
+  // Add the Vite BASE_URL variable here
+  const baseUrl = import.meta.env.BASE_URL;
+
+  // Updated to show "more Filipino" community and student images with BASE_URL
   const communityImages = [
     {
-      src: 'urc-project-renewhealth.jpg',
+      src: `${baseUrl}urc-project-renewhealth.jpg`,
       alt: 'Filipino students studying together',
     },
     {
-      src: 'IMG_2534-1.jpeg',
+      src: `${baseUrl}IMG_2534-1.jpeg`,
       alt: 'Filipino community activity',
     },
     {
-      src: 'cdshome01.webp',
+      src: `${baseUrl}cdshome01.webp`,
       alt: 'Smiling Filipino youth',
     },
   ]
@@ -130,10 +133,10 @@ const Home = () => {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="relative"
             >
-              {/* Updated Big Photo here */}
               <div className="aspect-square bg-gradient-to-br from-primary to-primary-dark rounded-2xl flex items-center justify-center overflow-hidden shadow-xl">
+                {/* Updated the main big image with BASE_URL */}
                 <img 
-                  src="/2930097115_c9872e5056_b.jpg" 
+                  src={`${baseUrl}2930097115_c9872e5056_b.jpg`} 
                   alt="Counseling Session" 
                   className="w-full h-full object-cover"
                 />
@@ -259,7 +262,6 @@ const Home = () => {
             </p>
           </motion.div>
 
-          {/* This is where the 3 Filipino photos appear */}
           <div className="grid md:grid-cols-3 gap-8">
             {communityImages.map((image, index) => (
               <motion.div
