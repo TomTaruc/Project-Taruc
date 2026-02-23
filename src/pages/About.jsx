@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { Heart, Target, Users, Award, Clock, Shield } from 'lucide-react'
 
+// Senior Dev Tip: Import images as modules so Vite hashes them for production
 import teamImg1 from '../assets/320x400.jpeg'
 import teamImg2 from '../assets/OIP (1).jpg'
 import teamImg3 from '../assets/Bernardo_Fellow2019.jpg'
@@ -36,28 +37,24 @@ const About = () => {
     { value: '24/7', label: 'Crisis Support' },
   ]
 
-  // Add the Vite BASE_URL variable here
-  const baseUrl = import.meta.env.BASE_URL;
-
-  // Updated images with BASE_URL
   const team = [
     {
       name: 'Dr. Aliyah Felipe',
       role: 'Lead Counselor - Academic',
       credentials: 'Ph.D. in Counseling Psychology',
-      image: `${baseUrl}320x400.jpeg`,
+      image: teamImg1, // Use the imported module
     },
     {
       name: 'Dr. Erika Cruz',
       role: 'Career Counselor',
       credentials: 'M.A. in Career Development',
-      image: `${baseUrl}OIP (1).jpg`,
-        },
+      image: teamImg2, // Use the imported module
+    },
     {
       name: 'Dr. Ariel Ocampo',
       role: 'Personal Counselor',
       credentials: 'Psy.D. in Clinical Psychology',
-      image: `${baseUrl}Bernardo_Fellow2019.jpg`,
+      image: teamImg3, // Use the imported module
     },
   ]
 

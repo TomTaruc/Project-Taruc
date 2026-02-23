@@ -4,6 +4,7 @@ import { Calendar, Heart, Shield, Users, ArrowRight, CheckCircle, Mail, Phone, M
 import { useState } from 'react'
 import showToast from '../components/Toast'
 
+// Senior Dev Tip: Direct imports ensure Vite resolves paths correctly for GH Pages
 import heroImg from '../assets/2930097115_c9872e5056_b.jpg'
 import communityImg1 from '../assets/urc-project-renewhealth.jpg'
 import communityImg2 from '../assets/IMG_2534-1.jpeg'
@@ -50,21 +51,17 @@ const Home = () => {
     'Anonymous Sessions',
   ]
 
-  // Add the Vite BASE_URL variable here
-  const baseUrl = import.meta.env.BASE_URL;
-
-  // Updated to show "more Filipino" community and student images with BASE_URL
   const communityImages = [
     {
-      src: `${baseUrl}urc-project-renewhealth.jpg`,
+      src: communityImg1,
       alt: 'Filipino students studying together',
     },
     {
-      src: `${baseUrl}IMG_2534-1.jpeg`,
+      src: communityImg2,
       alt: 'Filipino community activity',
     },
     {
-      src: `${baseUrl}cdshome01.webp`,
+      src: communityImg3,
       alt: 'Smiling Filipino youth',
     },
   ]
@@ -139,9 +136,8 @@ const Home = () => {
               className="relative"
             >
               <div className="aspect-square bg-gradient-to-br from-primary to-primary-dark rounded-2xl flex items-center justify-center overflow-hidden shadow-xl">
-                {/* Updated the main big image with BASE_URL */}
                 <img 
-                  src={`${baseUrl}2930097115_c9872e5056_b.jpg`} 
+                  src={heroImg} 
                   alt="Counseling Session" 
                   className="w-full h-full object-cover"
                 />
@@ -402,7 +398,7 @@ const Home = () => {
 
               <div className="card p-0 overflow-hidden">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3861.4738!2d121.1327!3d14.5673!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTTCsDM0JzAyLjMiTiAxMjHCsDA3JzU3LjciRQ!5e0!3m2!1sen!2sph!4v1234567890"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3861.974052342557!2d121.1321473!3d14.5434557!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397c653457a4199%3A0xc30491a673d32b87!2sTaytay%2C%20Rizal!5e0!3m2!1sen!2sph!4v1700000000000!5m2!1sen!2sph"
                   width="100%"
                   height="300"
                   style={{ border: 0 }}
