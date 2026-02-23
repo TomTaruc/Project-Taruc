@@ -1,6 +1,10 @@
 import { motion } from 'framer-motion'
 import { Heart, Target, Users, Award, Clock, Shield } from 'lucide-react'
 
+import teamImg1 from '../assets/320x400.jpeg'
+import teamImg2 from '../assets/OIP (1).jpg'
+import teamImg3 from '../assets/Bernardo_Fellow2019.jpg'
+
 const About = () => {
   const values = [
     {

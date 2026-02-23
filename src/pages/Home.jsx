@@ -4,6 +4,11 @@ import { Calendar, Heart, Shield, Users, ArrowRight, CheckCircle, Mail, Phone, M
 import { useState } from 'react'
 import showToast from '../components/Toast'
 
+import heroImg from '../assets/2930097115_c9872e5056_b.jpg'
+import communityImg1 from '../assets/urc-project-renewhealth.jpg'
+import communityImg2 from '../assets/IMG_2534-1.jpeg'
+import communityImg3 from '../assets/cdshome01.webp'
+
 const Home = () => {
   const [formData, setFormData] = useState({
     name: '',
