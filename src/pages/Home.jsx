@@ -45,18 +45,19 @@ const Home = () => {
     'Anonymous Sessions',
   ]
 
+  // Updated to show "more Filipino" community and student images
   const communityImages = [
     {
-      src: 'https://images.pexels.com/photos/8466665/pexels-photo-8466665.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
-      alt: 'Teaching Filipino children in rural area',
+      src: 'urc-project-renewhealth.jpg',
+      alt: 'Filipino students studying together',
     },
     {
-      src: 'https://images.pexels.com/photos/8613089/pexels-photo-8613089.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
-      alt: 'Filipino kids mental health support',
+      src: 'IMG_2534-1.jpeg',
+      alt: 'Filipino community activity',
     },
     {
-      src: 'https://images.pexels.com/photos/5905857/pexels-photo-5905857.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
-      alt: 'Community counseling activities with Filipino children',
+      src: 'cdshome01.webp',
+      alt: 'Smiling Filipino youth',
     },
   ]
 
@@ -129,10 +130,13 @@ const Home = () => {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="relative"
             >
-              <div className="glass-card p-8">
-                <div className="aspect-square bg-gradient-to-br from-primary to-primary-dark rounded-2xl flex items-center justify-center">
-                  <Heart className="w-32 h-32 text-white" />
-                </div>
+              {/* Updated Big Photo here */}
+              <div className="aspect-square bg-gradient-to-br from-primary to-primary-dark rounded-2xl flex items-center justify-center overflow-hidden shadow-xl">
+                <img 
+                  src="/2930097115_c9872e5056_b.jpg" 
+                  alt="Counseling Session" 
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-secondary/20 rounded-full blur-3xl"></div>
               <div className="absolute -top-6 -right-6 w-32 h-32 bg-primary/20 rounded-full blur-3xl"></div>
@@ -255,6 +259,7 @@ const Home = () => {
             </p>
           </motion.div>
 
+          {/* This is where the 3 Filipino photos appear */}
           <div className="grid md:grid-cols-3 gap-8">
             {communityImages.map((image, index) => (
               <motion.div

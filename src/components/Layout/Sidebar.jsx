@@ -111,20 +111,6 @@ const Sidebar = () => {
         )}
       </nav>
 
-      {user?.role === 'user' && (
-        <div className="p-4 border-t border-gray-200">
-          <a
-            href="tel:18001087276656"
-            className="emergency-button block text-center"
-          >
-            <Phone className="w-5 h-5 inline mr-2" />
-            <div className="text-xs font-bold">🆘 CRISIS SUPPORT</div>
-            <div className="text-xs mt-1">NCMH: 1800-10-USAP-OKO</div>
-            <div className="text-xs">DOH: 1553</div>
-          </a>
-        </div>
-      )}
-
       <div className="p-4 border-t border-gray-200">
         <div className="mb-4 p-4 bg-primary/5 rounded-lg">
           <p className="text-sm font-medium text-gray-900">{user?.name}</p>
