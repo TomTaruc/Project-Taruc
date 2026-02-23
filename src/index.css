@@ -4,6 +4,40 @@
 @tailwind components;
 @tailwind utilities;
 
+
+html {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.card,
+.card-hover,
+.sidebar-link,
+.sidebar-link-active,
+.btn-primary,
+.btn-outline,
+.btn-ghost,
+.btn-secondary,
+.badge {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+[data-framer-component-type],
+[style*="transform"],
+[style*="opacity"] {
+  will-change: transform, opacity;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+
 @layer base {
   :root {
     --color-primary: #0CA678;
