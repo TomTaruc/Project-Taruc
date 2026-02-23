@@ -13,7 +13,15 @@ import {
   Menu,
   X,
   Heart,
+  Bell,
+  MessageCircle,
+  Phone,
+  BarChart3,
+  Inbox,
+  MapPin,
+  Clock,
 } from 'lucide-react'
+import { notifications, inquiries, followUpReminders, liveStatsToday } from '../../utils/mockData'
 
 const Sidebar = () => {
   const { user, logout } = useAuth()
@@ -25,10 +33,18 @@ const Sidebar = () => {
     navigate('/login')
   }
 
+  const unreadNotifications = notifications.filter(n => !n.read).length
+  const pendingInquiries = inquiries.filter(i => i.status === 'pending').length
+  const overdueFollowUps = followUpReminders.filter(r => r.priority === 'high').length
+
   const userLinks = [
     { to: '/user/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/user/book-appointment', icon: Calendar, label: 'Book Appointment' },
     { to: '/user/my-appointments', icon: ClipboardList, label: 'My Appointments' },
+    { to: '/user/notifications', icon: Bell, label: 'Notifications', badge: unreadNotifications },
+    { to: '/user/announcements', icon: Megaphone, label: 'Announcements' },
+    { to: '/user/calendar', icon: Calendar, label: 'Calendar' },
+    { to: '/user/chat', icon: MessageCircle, label: 'Chat Counselor' },
   ]
 
   const adminLinks = [
@@ -36,6 +52,10 @@ const Sidebar = () => {
     { to: '/admin/appointments', icon: Calendar, label: 'Appointments' },
     { to: '/admin/records', icon: FileText, label: 'Client Records' },
     { to: '/admin/announcements', icon: Megaphone, label: 'Announcements' },
+    { to: '/admin/inquiries', icon: Inbox, label: 'Inquiry Manager', badge: pendingInquiries },
+    { to: '/admin/counselors', icon: Users, label: 'Counselor Roster' },
+    { to: '/admin/barangay-map', icon: MapPin, label: 'Barangay Map' },
+    { to: '/admin/follow-ups', icon: Clock, label: 'Follow-up Reminders', badge: overdueFollowUps },
   ]
 
   const links = user?.role === 'admin' ? adminLinks : userLinks
@@ -54,6 +74,30 @@ const Sidebar = () => {
         </div>
       </div>
 
+      {user?.role === 'admin' && (
+        <div className="p-4 border-b border-gray-200">
+          <div className="text-xs text-gray-500 mb-2 font-medium">LIVE STATS TODAY</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="live-stat-mini">
+              <Calendar className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">{liveStatsToday.todayAppointments}</span>
+            </div>
+            <div className="live-stat-mini">
+              <Clock className="w-4 h-4 text-green-600" />
+              <span className="text-sm font-semibold">{liveStatsToday.activeSessions}</span>
+            </div>
+            <div className="live-stat-mini">
+              <Inbox className="w-4 h-4 text-yellow-600" />
+              <span className="text-sm font-semibold">{liveStatsToday.pendingInquiries}</span>
+            </div>
+            <div className="live-stat-mini">
+              <Phone className="w-4 h-4 text-red-600" />
+              <span className="text-sm font-semibold">{liveStatsToday.emergencyCalls}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {links.map((link) => (
           <NavLink
@@ -65,10 +109,39 @@ const Sidebar = () => {
             }
           >
             <link.icon className="w-5 h-5" />
-            <span>{link.label}</span>
+            <span className="flex-1">{link.label}</span>
+            {link.badge > 0 && (
+              <span className="notification-badge">{link.badge}</span>
+            )}
           </NavLink>
         ))}
+
+        {user?.role === 'user' && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+              <Heart className="w-4 h-4 text-primary" />
+              <span className="font-medium">Daily Wellness Tip</span>
+            </div>
+            <p className="text-xs text-gray-500 italic px-2">
+              "Ang pag-asa ay laging nandito. Huwag matakot humingi ng tulong."
+            </p>
+          </div>
+        )}
       </nav>
+
+      {user?.role === 'user' && (
+        <div className="p-4 border-t border-gray-200">
+          <a
+            href="tel:18001087276656"
+            className="emergency-button block text-center"
+          >
+            <Phone className="w-5 h-5 inline mr-2" />
+            <div className="text-xs font-bold">🆘 CRISIS SUPPORT</div>
+            <div className="text-xs mt-1">NCMH: 1800-10-USAP-OKO</div>
+            <div className="text-xs">DOH: 1553</div>
+          </a>
+        </div>
+      )}
 
       <div className="p-4 border-t border-gray-200">
         <div className="mb-4 p-4 bg-primary/5 rounded-lg">
