@@ -39,11 +39,24 @@ const PublicRoute = ({ children }) => {
 
 const ScrollToTop = () => {
   const { pathname } = useLocation()
+  
   useEffect(() => {
-    const el = document.getElementById('main-scroll-area')
-    if (el) el.scrollTo(0, 0)
-    else window.scrollTo(0, 0)
+    // Reset the dashboard scroll area if it exists
+    const dashboardScrollEl = document.getElementById('main-scroll-area')
+    if (dashboardScrollEl) {
+      dashboardScrollEl.scrollTo(0, 0)
+    }
+    
+    // Reset the public page scroll area if it exists
+    const publicScrollEl = document.getElementById('public-scroll-area')
+    if (publicScrollEl) {
+      publicScrollEl.scrollTo(0, 0)
+    }
+
+    // Fallback for standard window scroll
+    window.scrollTo(0, 0)
   }, [pathname])
+  
   return null
 }
 
@@ -54,18 +67,15 @@ const App = () => {
     <>
       <ScrollToTop />
       {isAuthenticated ? (
-        <div className="flex h-screen overflow-hidden">
+        <div className="flex h-screen bg-gray-50 overflow-hidden">
           <Sidebar />
-          <div className="flex flex-col flex-1 lg:ml-64 min-w-0 overflow-hidden">
-            <div className="flex-shrink-0 z-30 bg-white border-b border-gray-200">
-              <Navbar />
-            </div>
+          <div className="flex flex-col flex-1 lg:ml-64 min-w-0 h-full relative">
+            <Navbar />
             <div
               id="main-scroll-area"
-              className="flex-1 overflow-y-auto bg-gray-50"
-              style={{ scrollbarGutter: 'stable' }}
+              className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pt-20"
             >
-              <main className="p-4 lg:p-6">
+              <main className="p-4 lg:p-6 flex-1">
                 <Routes>
                   <Route path="/user/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
                   <Route path="/user/book-appointment" element={<ProtectedRoute><BookAppointment /></ProtectedRoute>} />
@@ -90,18 +100,23 @@ const App = () => {
           </div>
         </div>
       ) : (
-        <div className="min-h-screen flex flex-col" style={{ scrollbarGutter: 'stable' }}>
+        <div className="h-screen flex flex-col overflow-hidden">
           <Navbar />
-          <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-              <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
-          <Footer />
+          <div 
+            id="public-scroll-area"
+            className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pt-16"
+          >
+            <main className="flex-1">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+                <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </main>
+            <Footer />
+          </div>
         </div>
       )}
     </>

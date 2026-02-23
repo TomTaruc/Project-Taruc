@@ -12,16 +12,15 @@ import {
   LogOut,
   Menu,
   X,
-  Heart,
   Bell,
   MessageCircle,
-  Phone,
-  BarChart3,
   Inbox,
   MapPin,
   Clock,
+  Heart
 } from 'lucide-react'
-import { notifications, inquiries, followUpReminders, liveStatsToday } from '../../utils/mockData'
+import { notifications, inquiries, followUpReminders } from '../../utils/mockData'
+import logoImg from '../../assets/logo.png' 
 
 const Sidebar = () => {
   const { user, logout } = useAuth()
@@ -67,11 +66,11 @@ const Sidebar = () => {
   }
 
   const sidebarContent = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-white">
       <div className="p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors duration-200" onClick={handleLogoClick}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-dark rounded-lg flex items-center justify-center">
-            <Heart className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
+            <img src={logoImg} alt="Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">TheraPath</h1>
@@ -80,7 +79,7 @@ const Sidebar = () => {
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto scrollbar-hide">
         {links.map((link) => (
           <NavLink
             key={link.to}
@@ -134,12 +133,12 @@ const Sidebar = () => {
     <>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-[9999] p-2 bg-white rounded-lg shadow-lg border border-gray-200"
       >
         {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
 
-      <aside className="hidden lg:block fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 z-40">
+      <aside className="hidden lg:block fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-40">
         {sidebarContent}
       </aside>
 
@@ -151,14 +150,14 @@ const Sidebar = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="lg:hidden fixed inset-0 bg-black/50 z-40"
+              className="lg:hidden fixed inset-0 bg-black/50 z-[9000]"
             />
             <motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="lg:hidden fixed left-0 top-0 h-screen w-64 bg-white z-50 shadow-xl"
+              className="lg:hidden fixed left-0 top-0 h-full w-64 bg-white z-[9998] shadow-xl"
             >
               {sidebarContent}
             </motion.aside>

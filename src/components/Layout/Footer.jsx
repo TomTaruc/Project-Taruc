@@ -1,21 +1,31 @@
 import { Link } from 'react-router-dom'
-import { Heart, Mail, Phone, MapPin } from 'lucide-react'
+import { Mail, Phone, MapPin } from 'lucide-react'
+import logoImg from '../../assets/logo.png'
 
 const Footer = () => {
   return (
     <footer className="bg-gray-900 text-gray-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-dark rounded-lg flex items-center justify-center">
-                <Heart className="w-6 h-6 text-white" />
+
+              {/* LOGO */}
+              <div className="w-10 h-10 rounded-lg overflow-hidden">
+                <img
+                  src={logoImg}
+                  alt="TheraPath Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
+
               <div>
                 <h3 className="text-xl font-bold text-white">TheraPath</h3>
                 <p className="text-xs text-gray-400">Guidance Counseling</p>
               </div>
             </div>
+
             <p className="text-sm text-gray-400">
               Professional guidance counseling services to support your academic,
               career, and personal development journey.
@@ -76,6 +86,7 @@ const Footer = () => {
               </li>
             </ul>
           </div>
+
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-8 text-center">
@@ -86,6 +97,7 @@ const Footer = () => {
             Made by Tom Taruc
           </p>
         </div>
+
       </div>
     </footer>
   )
