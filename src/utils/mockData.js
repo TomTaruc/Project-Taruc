@@ -1,3 +1,7 @@
+import aliyahImg from '../assets/320x400.jpeg';
+import erikaImg from '../assets/OIP (1).jpg';
+import arielImg from '../assets/Bernardo_Fellow2019.jpg';
+
 export const users = [
   {
     id: 1,
@@ -409,7 +413,7 @@ export const counselorRoster = [
     availableTimes: ['09:00 AM - 12:00 PM', '02:00 PM - 05:00 PM'],
     contact: '+63 912 345 6800',
     email: 'aliyah.felipe@therapath.com',
-    image: '/320x400.jpeg',
+    image: aliyahImg,
   },
   {
     id: 2,
@@ -420,7 +424,7 @@ export const counselorRoster = [
     availableTimes: ['10:00 AM - 01:00 PM', '03:00 PM - 06:00 PM'],
     contact: '+63 912 345 6801',
     email: 'erika.cruz@therapath.com',
-    image: '/OIP (1).jpg',
+    image: erikaImg,
   },
   {
     id: 3,
@@ -431,7 +435,7 @@ export const counselorRoster = [
     availableTimes: ['08:00 AM - 11:00 AM', '01:00 PM - 04:00 PM'],
     contact: '+63 912 345 6802',
     email: 'ariel.ocampo@therapath.com',
-    image: '/Bernardo_Fellow2019.jpg',
+    image: arielImg,
   },
 ]
 
