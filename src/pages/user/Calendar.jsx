@@ -1,14 +1,27 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
-import { appointments } from '../../utils/mockData'
+import { api } from '../../services/api'
 
 const Calendar = () => {
-  const { user } = useAuth()
+  const [appointments, setAppointments] = useState([])
+  const [loading, setLoading] = useState(true)
   const [currentDate, setCurrentDate] = useState(new Date())
 
-  const userAppointments = appointments.filter(apt => apt.userId === user?.id)
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      try {
+        const data = await api.appointments.getUserAppointments()
+        setAppointments(data || [])
+      } catch (err) {
+        console.error('Error fetching appointments:', err)
+        setAppointments([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAppointments()
+  }, [])
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear()
@@ -17,30 +30,20 @@ const Calendar = () => {
     const lastDay = new Date(year, month + 1, 0)
     const daysInMonth = lastDay.getDate()
     const startingDayOfWeek = firstDay.getDay()
-
     return { daysInMonth, startingDayOfWeek, year, month }
   }
 
   const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(currentDate)
 
-  const previousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))
-  }
-
-  const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))
-  }
+  const previousMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))
+  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))
 
   const getAppointmentsForDay = (day) => {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    return userAppointments.filter(apt => apt.date === dateStr)
+    return appointments.filter(apt => apt.date === dateStr)
   }
 
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ]
-
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   const days = []
@@ -58,13 +61,9 @@ const Calendar = () => {
     days.push(
       <div
         key={day}
-        className={`p-2 md:p-4 border border-gray-200 min-h-24 ${
-          isToday ? 'bg-primary/5 border-primary' : 'bg-white'
-        }`}
+        className={`p-2 md:p-4 border border-gray-200 min-h-24 ${isToday ? 'bg-primary/5 border-primary' : 'bg-white'}`}
       >
-        <div className={`text-sm font-semibold mb-2 ${isToday ? 'text-primary' : 'text-gray-900'}`}>
-          {day}
-        </div>
+        <div className={`text-sm font-semibold mb-2 ${isToday ? 'text-primary' : 'text-gray-900'}`}>{day}</div>
         <div className="space-y-1">
           {dayAppointments.map((apt) => (
             <div
@@ -79,7 +78,7 @@ const Calendar = () => {
                 <Clock className="w-3 h-3" />
                 <span>{apt.time}</span>
               </div>
-              <div className="truncate">{apt.type}</div>
+              <div className="truncate">{apt.type || apt.appointment_type}</div>
             </div>
           ))}
         </div>
@@ -87,12 +86,11 @@ const Calendar = () => {
     )
   }
 
+  const upcomingAppointments = appointments.filter(apt => apt.status !== 'cancelled' && apt.status !== 'completed')
+
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Calendar</h1>
         <p className="text-gray-600">View your appointment schedule</p>
       </motion.div>
@@ -104,14 +102,9 @@ const Calendar = () => {
         className="card"
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {monthNames[month]} {year}
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900">{monthNames[month]} {year}</h2>
           <div className="flex items-center gap-2">
-            <button
-              onClick={previousMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-            >
+            <button onClick={previousMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200">
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
@@ -120,26 +113,26 @@ const Calendar = () => {
             >
               Today
             </button>
-            <button
-              onClick={nextMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-            >
+            <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200">
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-0 border border-gray-200">
-          {dayNames.map((dayName) => (
-            <div
-              key={dayName}
-              className="p-2 md:p-4 bg-gray-50 border-b border-gray-200 text-center font-semibold text-gray-900 text-sm"
-            >
-              {dayName}
-            </div>
-          ))}
-          {days}
-        </div>
+        {loading ? (
+          <div className="animate-pulse grid grid-cols-7 gap-0 border border-gray-200">
+            {[...Array(35)].map((_, i) => <div key={i} className="h-24 bg-gray-100 border border-gray-200"></div>)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-7 gap-0 border border-gray-200">
+            {dayNames.map((dayName) => (
+              <div key={dayName} className="p-2 md:p-4 bg-gray-50 border-b border-gray-200 text-center font-semibold text-gray-900 text-sm">
+                {dayName}
+              </div>
+            ))}
+            {days}
+          </div>
+        )}
 
         <div className="mt-6 flex items-center gap-6 text-sm">
           <div className="flex items-center gap-2">
@@ -164,33 +157,28 @@ const Calendar = () => {
         className="card"
       >
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Appointments</h3>
-        {userAppointments.filter(apt => apt.status !== 'cancelled' && apt.status !== 'completed').length > 0 ? (
+        {loading ? (
+          <div className="space-y-3 animate-pulse">
+            {[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-lg"></div>)}
+          </div>
+        ) : upcomingAppointments.length > 0 ? (
           <div className="space-y-3">
-            {userAppointments
-              .filter(apt => apt.status !== 'cancelled' && apt.status !== 'completed')
-              .slice(0, 5)
-              .map((apt) => (
-                <div key={apt.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <CalendarIcon className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="font-medium text-gray-900">{apt.type}</p>
-                      <p className="text-sm text-gray-600">
-                        {new Date(apt.date).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })} at {apt.time}
-                      </p>
-                    </div>
+            {upcomingAppointments.slice(0, 5).map((apt) => (
+              <div key={apt.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <CalendarIcon className="w-5 h-5 text-primary" />
+                  <div>
+                    <p className="font-medium text-gray-900">{apt.type || apt.appointment_type}</p>
+                    <p className="text-sm text-gray-600">
+                      {apt.date ? new Date(apt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}{apt.time ? ` at ${apt.time}` : ''}
+                    </p>
                   </div>
-                  <span className={`badge ${
-                    apt.status === 'confirmed' ? 'badge-success' : 'badge-warning'
-                  }`}>
-                    {apt.status}
-                  </span>
                 </div>
-              ))}
+                <span className={`badge ${apt.status === 'confirmed' ? 'badge-success' : 'badge-warning'}`}>
+                  {apt.status}
+                </span>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="text-center py-8">

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, MessageCircle, User, Clock, CheckCircle, Heart, Shield } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { inquiries } from '../../utils/mockData'
+import { api } from '../../services/api'
 import showToast from '../../components/Toast'
 
 const Chat = () => {
@@ -12,96 +12,105 @@ const Chat = () => {
   const [subject, setSubject] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [hasStarted, setHasStarted] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
   const messagesEndRef = useRef(null)
 
-  // Load user's existing inquiries as chat messages
   useEffect(() => {
-    const userInquiries = inquiries.filter(
-      i => i.email === user?.email || i.name === user?.name
-    )
-
-    if (userInquiries.length > 0) {
-      setHasStarted(true)
-      const chatMessages = []
-      userInquiries.forEach(inquiry => {
-        // User's message
-        chatMessages.push({
-          id: `user-${inquiry.id}`,
-          sender: 'user',
-          text: inquiry.message,
-          subject: inquiry.subject,
-          timestamp: inquiry.createdAt,
-          status: inquiry.status,
-        })
-        // Counselor's reply (if responded)
-        if (inquiry.status === 'responded' && inquiry.response) {
-          chatMessages.push({
-            id: `counselor-${inquiry.id}`,
-            sender: 'counselor',
-            text: inquiry.response,
-            timestamp: inquiry.respondedAt,
-            counselorName: 'TheraPath Counselor',
+    const loadInquiries = async () => {
+      try {
+        const userInquiries = await api.inquiries.getUserInquiries()
+        if (userInquiries && userInquiries.length > 0) {
+          setHasStarted(true)
+          const chatMessages = []
+          userInquiries.forEach(inquiry => {
+            chatMessages.push({
+              id: `user-${inquiry.id}`,
+              sender: 'user',
+              text: inquiry.message,
+              subject: inquiry.subject,
+              timestamp: inquiry.created_at,
+              status: inquiry.status,
+            })
+            if (inquiry.status === 'responded' && inquiry.response) {
+              chatMessages.push({
+                id: `counselor-${inquiry.id}`,
+                sender: 'counselor',
+                text: inquiry.response,
+                timestamp: inquiry.responded_at || inquiry.created_at,
+                counselorName: 'TheraPath Counselor',
+              })
+            }
           })
+          chatMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+          setMessages(chatMessages)
+        } else {
+          setMessages([{
+            id: 'welcome',
+            sender: 'counselor',
+            text: `Hello ${user?.name?.split(' ')[0]}! 👋 Welcome to TheraPath Chat. I'm here to listen and support you. Feel free to share anything on your mind — this is a safe and confidential space. How can I help you today?`,
+            timestamp: new Date().toISOString(),
+            counselorName: 'TheraPath Counselor',
+          }])
         }
-      })
-      // Sort by timestamp
-      chatMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-      setMessages(chatMessages)
-    } else {
-      // Welcome message
-      setMessages([
-        {
+      } catch (err) {
+        console.error('Error loading inquiries:', err)
+        setMessages([{
           id: 'welcome',
           sender: 'counselor',
-          text: `Hello ${user?.name?.split(' ')[0]}! 👋 Welcome to TheraPath Chat. I'm here to listen and support you. Feel free to share anything on your mind — this is a safe and confidential space. How can I help you today?`,
+          text: `Hello ${user?.name?.split(' ')[0]}! 👋 Welcome to TheraPath Chat. How can I help you today?`,
           timestamp: new Date().toISOString(),
           counselorName: 'TheraPath Counselor',
-        },
-      ])
+        }])
+      } finally {
+        setLoading(false)
+      }
     }
+    if (user) loadInquiries()
   }, [user])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const handleSend = () => {
-    if (!inputText.trim()) return
+  const handleSend = async () => {
+    if (!inputText.trim() || sending) return
 
     const msgSubject = subject.trim() || 'Chat Message'
+    const msgText = inputText.trim()
 
-    // Add user message to chat
     const userMsg = {
       id: `user-${Date.now()}`,
       sender: 'user',
-      text: inputText.trim(),
+      text: msgText,
       subject: msgSubject,
       timestamp: new Date().toISOString(),
       status: 'pending',
     }
     setMessages(prev => [...prev, userMsg])
-
-    // Add to inquiries (so admin sees it in Inquiry Manager)
-    const newInquiry = {
-      id: inquiries.length + 1,
-      name: user?.name || 'User',
-      email: user?.email || '',
-      phone: user?.phone || 'N/A',
-      subject: msgSubject,
-      message: inputText.trim(),
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    }
-    inquiries.push(newInquiry)
-
     setInputText('')
     setSubject('')
     setHasStarted(true)
+    setSending(true)
+
+    try {
+      await api.inquiries.create({
+        name: user?.name || 'User',
+        email: user?.email || '',
+        phone: user?.phone || null,
+        subject: msgSubject,
+        message: msgText,
+        status: 'pending',
+      })
+      showToast.success('Message sent to counselor!')
+    } catch (err) {
+      console.error('Error sending inquiry:', err)
+      showToast.error('Failed to send message. Please try again.')
+    } finally {
+      setSending(false)
+    }
+
     setIsTyping(true)
-
-    showToast.success('Message sent to counselor!')
-
-    // Simulate counselor "seen" response delay
     setTimeout(() => {
       setIsTyping(false)
       const autoReply = {
@@ -123,10 +132,7 @@ const Chat = () => {
   }
 
   const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    return new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
   }
 
   const formatDate = (timestamp) => {
@@ -134,13 +140,11 @@ const Chat = () => {
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
-
     if (date.toDateString() === today.toDateString()) return 'Today'
     if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
-  // Group messages by date
   const groupedMessages = messages.reduce((groups, msg) => {
     const dateKey = formatDate(msg.timestamp)
     if (!groups[dateKey]) groups[dateKey] = []
@@ -179,70 +183,65 @@ const Chat = () => {
 
       {/* Messages Area */}
       <div className="flex-1 bg-white border border-gray-200 border-t-0 border-b-0 overflow-y-auto px-4 py-4 space-y-2">
-        {Object.entries(groupedMessages).map(([date, msgs]) => (
-          <div key={date}>
-            {/* Date separator */}
-            <div className="flex items-center gap-3 my-4">
-              <div className="flex-1 h-px bg-gray-200"></div>
-              <span className="text-xs text-gray-400 font-medium px-2">{date}</span>
-              <div className="flex-1 h-px bg-gray-200"></div>
-            </div>
-
-            {msgs.map((msg, idx) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.03 }}
-                className={`flex mb-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {msg.sender === 'counselor' && (
-                  <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center mr-2 flex-shrink-0 self-end mb-1 shadow-sm">
-                    <Heart className="w-4 h-4 text-white" />
-                  </div>
-                )}
-
-                <div className={`max-w-[70%] ${msg.sender === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-pulse text-gray-400">Loading messages...</div>
+          </div>
+        ) : (
+          Object.entries(groupedMessages).map(([date, msgs]) => (
+            <div key={date}>
+              <div className="flex items-center gap-3 my-4">
+                <div className="flex-1 h-px bg-gray-200"></div>
+                <span className="text-xs text-gray-400 font-medium px-2">{date}</span>
+                <div className="flex-1 h-px bg-gray-200"></div>
+              </div>
+              {msgs.map((msg, idx) => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.03 }}
+                  className={`flex mb-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
                   {msg.sender === 'counselor' && (
-                    <span className="text-xs text-gray-500 mb-1 ml-1">{msg.counselorName}</span>
+                    <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center mr-2 flex-shrink-0 self-end mb-1 shadow-sm">
+                      <Heart className="w-4 h-4 text-white" />
+                    </div>
                   )}
-                  {msg.subject && msg.sender === 'user' && (
-                    <span className="text-xs text-gray-400 mb-1 mr-1">Re: {msg.subject}</span>
-                  )}
-                  <div
-                    className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                  <div className={`max-w-[70%] ${msg.sender === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
+                    {msg.sender === 'counselor' && (
+                      <span className="text-xs text-gray-500 mb-1 ml-1">{msg.counselorName}</span>
+                    )}
+                    {msg.subject && msg.sender === 'user' && (
+                      <span className="text-xs text-gray-400 mb-1 mr-1">Re: {msg.subject}</span>
+                    )}
+                    <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
                       msg.sender === 'user'
                         ? 'bg-primary text-white rounded-tr-sm'
                         : 'bg-gray-100 text-gray-800 rounded-tl-sm'
-                    }`}
-                  >
-                    {msg.text}
+                    }`}>
+                      {msg.text}
+                    </div>
+                    <div className={`flex items-center gap-1 mt-1 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <span className="text-xs text-gray-400">{formatTime(msg.timestamp)}</span>
+                      {msg.sender === 'user' && (
+                        msg.status === 'responded'
+                          ? <CheckCircle className="w-3 h-3 text-primary" />
+                          : <Clock className="w-3 h-3 text-gray-400" />
+                      )}
+                    </div>
                   </div>
-                  <div className={`flex items-center gap-1 mt-1 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <span className="text-xs text-gray-400">{formatTime(msg.timestamp)}</span>
-                    {msg.sender === 'user' && (
-                      <>
-                        {msg.status === 'responded' ? (
-                          <CheckCircle className="w-3 h-3 text-primary" />
-                        ) : (
-                          <Clock className="w-3 h-3 text-gray-400" />
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
+                  {msg.sender === 'user' && (
+                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center ml-2 flex-shrink-0 self-end mb-1 shadow-sm">
+                      <User className="w-4 h-4 text-gray-600" />
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          ))
+        )}
 
-                {msg.sender === 'user' && (
-                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center ml-2 flex-shrink-0 self-end mb-1 shadow-sm">
-                    <User className="w-4 h-4 text-gray-600" />
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </div>
-        ))}
-
-        {/* Typing indicator */}
         <AnimatePresence>
           {isTyping && (
             <motion.div
@@ -262,7 +261,6 @@ const Chat = () => {
             </motion.div>
           )}
         </AnimatePresence>
-
         <div ref={messagesEndRef} />
       </div>
 
@@ -294,11 +292,11 @@ const Chat = () => {
           />
           <button
             onClick={handleSend}
-            disabled={!inputText.trim()}
+            disabled={!inputText.trim() || sending}
             className="btn-primary flex-shrink-0 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed h-[52px] px-5"
           >
             <Send className="w-4 h-4" />
-            <span className="hidden sm:inline">Send</span>
+            <span className="hidden sm:inline">{sending ? 'Sending...' : 'Send'}</span>
           </button>
         </div>
         <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">

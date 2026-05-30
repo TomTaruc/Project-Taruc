@@ -1,66 +1,95 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Bell, Calendar, CheckCircle, Megaphone, AlertCircle, Trash2, Check } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
-import { notifications } from '../../utils/mockData'
+import { api } from '../../services/api'
 import showToast from '../../components/Toast'
 
 const Notifications = () => {
-  const { user } = useAuth()
+  const [notifications, setNotifications] = useState([])
+  const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState('all')
 
-  const userNotifications = notifications.filter(n => n.userId === user?.id)
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const data = await api.notifications.getUserNotifications()
+        setNotifications(data || [])
+      } catch (err) {
+        console.error('Error fetching notifications:', err)
+        setNotifications([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchNotifications()
+  }, [])
+
+  const unreadCount = notifications.filter(n => !n.read).length
 
   const filteredNotifications = filterType === 'all'
-    ? userNotifications
+    ? notifications
     : filterType === 'unread'
-    ? userNotifications.filter(n => !n.read)
-    : userNotifications.filter(n => n.read)
+    ? notifications.filter(n => !n.read)
+    : notifications.filter(n => n.read)
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'appointment_confirmed':
-        return <CheckCircle className="w-5 h-5 text-green-600" />
-      case 'appointment_reminder':
-        return <Calendar className="w-5 h-5 text-blue-600" />
-      case 'appointment_cancelled':
-        return <AlertCircle className="w-5 h-5 text-red-600" />
-      case 'announcement':
-        return <Megaphone className="w-5 h-5 text-primary" />
-      default:
-        return <Bell className="w-5 h-5 text-gray-600" />
+      case 'appointment_confirmed': return <CheckCircle className="w-5 h-5 text-green-600" />
+      case 'appointment_reminder': return <Calendar className="w-5 h-5 text-blue-600" />
+      case 'appointment_cancelled': return <AlertCircle className="w-5 h-5 text-red-600" />
+      case 'announcement': return <Megaphone className="w-5 h-5 text-primary" />
+      default: return <Bell className="w-5 h-5 text-gray-600" />
     }
   }
 
-  const handleMarkAsRead = (notificationId) => {
-    const notification = notifications.find(n => n.id === notificationId)
-    if (notification) {
-      notification.read = true
+  const handleMarkAsRead = async (id) => {
+    try {
+      await api.notifications.markAsRead(id)
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
       showToast.success('Notification marked as read')
+    } catch (err) {
+      console.error('Error marking notification as read:', err)
+      showToast.error('Failed to update notification')
     }
   }
 
-  const handleMarkAllAsRead = () => {
-    userNotifications.forEach(n => n.read = true)
-    showToast.success('All notifications marked as read')
+  const handleMarkAllAsRead = async () => {
+    try {
+      const unread = notifications.filter(n => !n.read)
+      await Promise.all(unread.map(n => api.notifications.markAsRead(n.id)))
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+      showToast.success('All notifications marked as read')
+    } catch (err) {
+      console.error('Error marking all as read:', err)
+      showToast.error('Failed to update notifications')
+    }
   }
 
-  const handleDelete = (notificationId) => {
-    const index = notifications.findIndex(n => n.id === notificationId)
-    if (index > -1) {
-      notifications.splice(index, 1)
+  const handleDelete = async (id) => {
+    try {
+      await api.notifications.delete(id)
+      setNotifications(prev => prev.filter(n => n.id !== id))
       showToast.success('Notification deleted')
+    } catch (err) {
+      console.error('Error deleting notification:', err)
+      showToast.error('Failed to delete notification')
     }
   }
 
-  const unreadCount = userNotifications.filter(n => !n.read).length
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-48 mb-4"></div>
+        <div className="space-y-3">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-200 rounded-lg"></div>)}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Notifications</h1>
@@ -69,10 +98,7 @@ const Notifications = () => {
             </p>
           </div>
           {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllAsRead}
-              className="btn-outline flex items-center gap-2"
-            >
+            <button onClick={handleMarkAllAsRead} className="btn-outline flex items-center gap-2">
               <Check className="w-4 h-4" />
               Mark All as Read
             </button>
@@ -87,36 +113,21 @@ const Notifications = () => {
         className="card"
       >
         <div className="flex items-center gap-2 mb-6">
-          <button
-            onClick={() => setFilterType('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-              filterType === 'all'
-                ? 'bg-primary text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            All ({userNotifications.length})
-          </button>
-          <button
-            onClick={() => setFilterType('unread')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-              filterType === 'unread'
-                ? 'bg-primary text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Unread ({unreadCount})
-          </button>
-          <button
-            onClick={() => setFilterType('read')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-              filterType === 'read'
-                ? 'bg-primary text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Read ({userNotifications.length - unreadCount})
-          </button>
+          {[
+            { key: 'all', label: `All (${notifications.length})` },
+            { key: 'unread', label: `Unread (${unreadCount})` },
+            { key: 'read', label: `Read (${notifications.length - unreadCount})` },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setFilterType(key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                filterType === key ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {filteredNotifications.length > 0 ? (
@@ -128,9 +139,7 @@ const Notifications = () => {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
                 className={`p-4 rounded-lg border-l-4 transition-all duration-200 ${
-                  notification.read
-                    ? 'bg-gray-50 border-gray-300'
-                    : 'bg-blue-50 border-primary'
+                  notification.read ? 'bg-gray-50 border-gray-300' : 'bg-blue-50 border-primary'
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">
@@ -142,27 +151,17 @@ const Notifications = () => {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-1">
-                        <h3 className={`font-semibold ${
-                          notification.read ? 'text-gray-700' : 'text-gray-900'
-                        }`}>
+                        <h3 className={`font-semibold ${notification.read ? 'text-gray-700' : 'text-gray-900'}`}>
                           {notification.title}
                         </h3>
-                        {!notification.read && (
-                          <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2"></span>
-                        )}
+                        {!notification.read && <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2"></span>}
                       </div>
-                      <p className={`text-sm mb-2 ${
-                        notification.read ? 'text-gray-600' : 'text-gray-700'
-                      }`}>
+                      <p className={`text-sm mb-2 ${notification.read ? 'text-gray-600' : 'text-gray-700'}`}>
                         {notification.message}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {new Date(notification.createdAt).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
+                        {new Date(notification.created_at).toLocaleDateString('en-US', {
+                          month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
                         })}
                       </p>
                     </div>
@@ -196,9 +195,7 @@ const Notifications = () => {
               {filterType === 'all' ? 'No notifications' : `No ${filterType} notifications`}
             </h3>
             <p className="text-gray-600">
-              {filterType === 'all'
-                ? 'You have no notifications at this time'
-                : `You have no ${filterType} notifications`}
+              {filterType === 'all' ? 'You have no notifications at this time' : `You have no ${filterType} notifications`}
             </p>
           </div>
         )}

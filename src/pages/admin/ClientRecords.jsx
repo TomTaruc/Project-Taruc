@@ -1,17 +1,38 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { User, Calendar, Clock, FileText, Search, Filter, Plus, Eye } from 'lucide-react'
-import { clientRecords } from '../../utils/mockData'
+import { User, Calendar, Clock, FileText, Search, Filter, Eye } from 'lucide-react'
+import { api } from '../../services/api'
 
 const ClientRecords = () => {
+  const [records, setRecords] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [selectedRecord, setSelectedRecord] = useState(null)
 
-  const filteredRecords = clientRecords.filter(record => {
-    const matchesSearch = record.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         record.sessionType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         record.counselor.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    const fetchRecords = async () => {
+      try {
+        const data = await api.clientRecords.getAllAdmin()
+        setRecords(data || [])
+      } catch (err) {
+        console.error('Error fetching client records:', err)
+        setRecords([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchRecords()
+  }, [])
+
+  const filteredRecords = records.filter(record => {
+    const name = record.client_name || ''
+    const type = record.session_type || ''
+    const counselor = record.counselor || ''
+    const matchesSearch =
+      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      counselor.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesFilter = filterStatus === 'all' || record.status === filterStatus
     return matchesSearch && matchesFilter
   })
@@ -25,21 +46,27 @@ const ClientRecords = () => {
     return badges[status] || 'badge'
   }
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => <div key={i} className="h-40 bg-gray-200 rounded-lg"></div>)}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Client Records</h1>
             <p className="text-gray-600">Manage counseling session records and client information</p>
           </div>
-          <button className="btn-primary flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            New Record
-          </button>
         </div>
       </motion.div>
 
@@ -91,61 +118,54 @@ const ClientRecords = () => {
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">{record.clientName}</h3>
-                        <span className={`badge ${getStatusBadge(record.status)}`}>
-                          {record.status}
-                        </span>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1">{record.client_name}</h3>
+                        <span className={`badge ${getStatusBadge(record.status)}`}>{record.status}</span>
                       </div>
                     </div>
-                    
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <FileText className="w-4 h-4 flex-shrink-0" />
-                          <span className="font-medium">{record.sessionType}</span>
+                          <span className="font-medium">{record.session_type}</span>
                         </div>
-                        
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Calendar className="w-4 h-4 flex-shrink-0" />
                           <span>
-                            {new Date(record.sessionDate).toLocaleDateString('en-US', { 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
-                            })}
+                            {record.session_date
+                              ? new Date(record.session_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+                              : 'N/A'}
                           </span>
                         </div>
-                        
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Clock className="w-4 h-4 flex-shrink-0" />
-                          <span>{record.duration}</span>
-                        </div>
+                        {record.duration && (
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Clock className="w-4 h-4 flex-shrink-0" />
+                            <span>{record.duration}</span>
+                          </div>
+                        )}
                       </div>
-                      
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <User className="w-4 h-4 flex-shrink-0" />
                           <span>{record.counselor}</span>
                         </div>
-                        
-                        {record.followUpRequired && (
+                        {record.follow_up_required && (
                           <div className="flex items-start gap-2 text-sm">
                             <span className="badge badge-warning">Follow-up Required</span>
-                            {record.followUpDate && (
+                            {record.follow_up_date && (
                               <span className="text-gray-600">
-                                {new Date(record.followUpDate).toLocaleDateString()}
+                                {new Date(record.follow_up_date).toLocaleDateString()}
                               </span>
                             )}
                           </div>
                         )}
                       </div>
                     </div>
-
-                    <div className="mt-4 p-4 bg-white rounded-lg">
-                      <p className="text-sm text-gray-700 line-clamp-3">{record.notes}</p>
-                    </div>
+                    {record.notes && (
+                      <div className="mt-4 p-4 bg-white rounded-lg">
+                        <p className="text-sm text-gray-700 line-clamp-3">{record.notes}</p>
+                      </div>
+                    )}
                   </div>
-
                   <div className="flex flex-col gap-2">
                     <button
                       onClick={() => setSelectedRecord(record)}
@@ -187,24 +207,16 @@ const ClientRecords = () => {
           >
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedRecord.clientName}</h2>
-                <span className={`badge ${getStatusBadge(selectedRecord.status)}`}>
-                  {selectedRecord.status}
-                </span>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedRecord.client_name}</h2>
+                <span className={`badge ${getStatusBadge(selectedRecord.status)}`}>{selectedRecord.status}</span>
               </div>
-              <button
-                onClick={() => setSelectedRecord(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
-              >
-                ×
-              </button>
+              <button onClick={() => setSelectedRecord(null)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
             </div>
-
             <div className="space-y-6">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Session Type</label>
-                  <p className="text-gray-900">{selectedRecord.sessionType}</p>
+                  <p className="text-gray-900">{selectedRecord.session_type}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Counselor</label>
@@ -213,36 +225,33 @@ const ClientRecords = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Session Date</label>
                   <p className="text-gray-900">
-                    {new Date(selectedRecord.sessionDate).toLocaleDateString('en-US', { 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
+                    {selectedRecord.session_date
+                      ? new Date(selectedRecord.session_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+                      : 'N/A'}
                   </p>
                 </div>
+                {selectedRecord.duration && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                    <p className="text-gray-900">{selectedRecord.duration}</p>
+                  </div>
+                )}
+              </div>
+              {selectedRecord.notes && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                  <p className="text-gray-900">{selectedRecord.duration}</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Session Notes</label>
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-gray-700 whitespace-pre-wrap">{selectedRecord.notes}</p>
+                  </div>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Session Notes</label>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-gray-700 whitespace-pre-wrap">{selectedRecord.notes}</p>
-                </div>
-              </div>
-
-              {selectedRecord.followUpRequired && (
+              )}
+              {selectedRecord.follow_up_required && (
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <h3 className="font-medium text-gray-900 mb-2">Follow-up Required</h3>
-                  {selectedRecord.followUpDate && (
+                  {selectedRecord.follow_up_date && (
                     <p className="text-sm text-gray-700">
-                      Scheduled for: {new Date(selectedRecord.followUpDate).toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
+                      Scheduled for:{' '}
+                      {new Date(selectedRecord.follow_up_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
                   )}
                 </div>
