@@ -1,5 +1,5 @@
-// This file now contains only non-user-specific configuration data.
-// All user, appointment, and inquiry data has been migrated to the database.
+// This file contains configuration data and fallback mock data.
+// Live data is fetched from the database via Supabase.
 
 export const timeSlots = [
   '09:00 AM',
@@ -32,3 +32,30 @@ export const barangayData = [
   { name: 'Brgy. Dolores', studentCount: 380, coordinates: { lat: 14.5712, lng: 121.1289 } },
   { name: 'Brgy. San Isidro', studentCount: 320, coordinates: { lat: 14.5645, lng: 121.1356 } },
 ]
+
+export const clientRecords = []
+
+export const counselorRoster = []
+
+export const dashboardStats = {
+  totalAppointments: 0,
+  pendingAppointments: 0,
+  totalClients: 0,
+  totalInquiries: 0,
+  confirmedAppointments: 0,
+  completedAppointments: 0,
+  activeRecords: 0,
+  pendingInquiries: 0,
+}
+
+export const appointmentChartData = []
+
+export const appointmentTypeData = []
+
+export const followUpReminders = []
+
+export const appointments = []
+
+export const inquiries = []
+
+export const notifications = []
