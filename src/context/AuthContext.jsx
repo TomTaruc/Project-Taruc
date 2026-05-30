@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { api } from '../services/api' // Importing our new PostgreSQL service layer
+import { api } from '../services/api'
+import { supabase } from '../services/supabase'
 
 const AuthContext = createContext(null)
 
@@ -18,60 +19,79 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const token = localStorage.getItem('therapath_token')
-      if (token) {
-        try {
-          // Fetch real user data from PostgreSQL via backend
-          const userData = await api.auth.getProfile()
-          setUser(userData)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          const profile = await api.auth.getProfile()
+          setUser(profile)
           setIsAuthenticated(true)
-        } catch (error) {
-          console.error("Session expired or invalid token:", error)
-          localStorage.removeItem('therapath_token')
         }
+      } catch (error) {
+        console.error("No active session:", error)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     initializeAuth()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        try {
+          const profile = await api.auth.getProfile()
+          setUser(profile)
+          setIsAuthenticated(true)
+        } catch (error) {
+          console.error("Error fetching profile on state shift:", error)
+        }
+      } else {
+        setUser(null)
+        setIsAuthenticated(false)
+      }
+      setLoading(false)
+    })
+
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
   }, [])
 
-  const login = async (email, password) => {
+  // Robust parameter handling to prevent "undefined email" errors
+  const login = async (emailOrObj, passwordArg) => {
     try {
-      // Async API call to PostgreSQL backend
+      const email = typeof emailOrObj === 'object' ? emailOrObj.email : emailOrObj;
+      const password = typeof emailOrObj === 'object' ? emailOrObj.password : passwordArg;
+
       const response = await api.auth.login({ email, password })
-      
       setUser(response.user)
       setIsAuthenticated(true)
-      
-      // Store JWT token instead of raw user data for security
-      localStorage.setItem('therapath_token', response.token)
-      
       return { success: true, user: response.user }
     } catch (error) {
-      return { success: false, message: error.message || 'Invalid email or password' }
+      console.error("Login Error Details:", error)
+      return { success: false, message: error.message || 'Invalid credentials' }
     }
   }
 
   const register = async (userData) => {
     try {
-      // Async API call to PostgreSQL backend
       const response = await api.auth.register(userData)
-      
       setUser(response.user)
       setIsAuthenticated(true)
-      localStorage.setItem('therapath_token', response.token)
-      
       return { success: true, user: response.user }
     } catch (error) {
+      console.error("Registration Error Details:", error)
       return { success: false, message: error.message || 'Registration failed' }
     }
   }
 
-  const logout = () => {
-    setUser(null)
-    setIsAuthenticated(false)
-    localStorage.removeItem('therapath_token')
+  const logout = async () => {
+    try {
+      await api.auth.logout()
+      setUser(null)
+      setIsAuthenticated(false)
+    } catch (error) {
+      console.error("Logout glitch:", error)
+    }
   }
 
   const value = {
