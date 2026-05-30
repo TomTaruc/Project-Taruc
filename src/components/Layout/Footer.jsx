@@ -93,9 +93,6 @@ const Footer = () => {
           <p className="text-sm text-gray-400">
             © {new Date().getFullYear()} TheraPath. All rights reserved. Built with care for your wellbeing.
           </p>
-          <p className="text-sm text-gray-500 mt-2">
-            Made by Tom Taruc
-          </p>
         </div>
 
       </div>

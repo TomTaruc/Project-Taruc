@@ -1,7 +1,8 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { api } from '../../services/api'
 import {
   LayoutDashboard,
   Calendar,
@@ -19,28 +20,29 @@ import {
   Clock,
   Heart
 } from 'lucide-react'
-import { notifications, inquiries, followUpReminders } from '../../utils/mockData'
 import logoImg from '../../assets/logo.png' 
 
 const Sidebar = () => {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
+  const [counts, setCounts] = useState({ notifications: 0, inquiries: 0, followUps: 0 })
+
+  useEffect(() => {
+    // You can implement database fetching here if you want these badges to be dynamic
+    // setCounts({ notifications: 0, inquiries: 0, followUps: 0 });
+  }, []);
 
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
 
-  const unreadNotifications = notifications.filter(n => !n.read).length
-  const pendingInquiries = inquiries.filter(i => i.status === 'pending').length
-  const overdueFollowUps = followUpReminders.filter(r => r.priority === 'high').length
-
   const userLinks = [
     { to: '/user/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/user/book-appointment', icon: Calendar, label: 'Book Appointment' },
     { to: '/user/my-appointments', icon: ClipboardList, label: 'My Appointments' },
-    { to: '/user/notifications', icon: Bell, label: 'Notifications', badge: unreadNotifications },
+    { to: '/user/notifications', icon: Bell, label: 'Notifications', badge: counts.notifications },
     { to: '/user/announcements', icon: Megaphone, label: 'Announcements' },
     { to: '/user/calendar', icon: Calendar, label: 'Calendar' },
     { to: '/user/chat', icon: MessageCircle, label: 'Chat Counselor' },
@@ -51,10 +53,10 @@ const Sidebar = () => {
     { to: '/admin/appointments', icon: Calendar, label: 'Appointments' },
     { to: '/admin/records', icon: FileText, label: 'Client Records' },
     { to: '/admin/announcements', icon: Megaphone, label: 'Announcements' },
-    { to: '/admin/inquiries', icon: Inbox, label: 'Inquiry Manager', badge: pendingInquiries },
+    { to: '/admin/inquiries', icon: Inbox, label: 'Inquiry Manager', badge: counts.inquiries },
     { to: '/admin/counselors', icon: Users, label: 'Counselor Roster' },
     { to: '/admin/barangay-map', icon: MapPin, label: 'Barangay Map' },
-    { to: '/admin/follow-ups', icon: Clock, label: 'Follow-up Reminders', badge: overdueFollowUps },
+    { to: '/admin/follow-ups', icon: Clock, label: 'Follow-up Reminders', badge: counts.followUps },
   ]
 
   const links = user?.role === 'admin' ? adminLinks : userLinks

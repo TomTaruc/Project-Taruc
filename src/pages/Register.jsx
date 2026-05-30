@@ -42,7 +42,7 @@ const Register = () => {
 
     setIsSubmitting(true)
     const registrationData = { ...formData, role: isAdmin ? 'admin' : 'user' }
-    const result = register(registrationData)
+    const result = await register(registrationData)
 
     if (result.success) {
       showToast.success('Account created successfully!')

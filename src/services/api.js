@@ -49,7 +49,7 @@ export const api = {
           email: userData.email,
           password: 'supabase_managed', 
           phone: userData.phone || null,
-          role: 'user'
+          role: userData.role || 'user' // FIX: Uses the role passed from Register.jsx
         }])
         .select()
         .single();
@@ -58,7 +58,7 @@ export const api = {
         id: authData.user.id, 
         email: authData.user.email, 
         name: userData.name,
-        role: 'user' 
+        role: userData.role || 'user' // FIX: Ensures profile object uses the correct role
       };
 
       return { user: userProfile, session: authData.session };
