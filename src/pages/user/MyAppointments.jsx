@@ -1,19 +1,38 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Calendar, Clock, FileText, Filter, Search } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { appointments } from '../../utils/mockData'
+import { api } from '../../services/api'
 
 const MyAppointments = () => {
   const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  
+  const [userAppointments, setUserAppointments] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const userAppointments = appointments.filter(apt => apt.userId === user?.id)
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      try {
+        setIsLoading(true)
+        const data = await api.appointments.getUserAppointments()
+        setUserAppointments(data || [])
+      } catch (error) {
+        console.error('Failed to fetch appointments:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    if (user) {
+      fetchAppointments()
+    }
+  }, [user])
 
   const filteredAppointments = userAppointments.filter(apt => {
     const matchesSearch = apt.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         apt.notes.toLowerCase().includes(searchTerm.toLowerCase())
+                         (apt.notes && apt.notes.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesFilter = filterStatus === 'all' || apt.status === filterStatus
     return matchesSearch && matchesFilter
   })
@@ -38,12 +57,18 @@ const MyAppointments = () => {
     return colors[status] || 'border-gray-300'
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64 text-gray-500">
+        <Clock className="w-8 h-8 animate-spin" />
+        <span className="ml-3">Loading your appointments...</span>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">My Appointments</h1>
         <p className="text-gray-600">View and manage all your counseling appointments</p>
       </motion.div>
@@ -107,10 +132,7 @@ const MyAppointments = () => {
                         <Calendar className="w-4 h-4" />
                         <span>
                           {new Date(apt.date).toLocaleDateString('en-US', { 
-                            weekday: 'long', 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
+                            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
                           })}
                         </span>
                       </div>
@@ -131,26 +153,18 @@ const MyAppointments = () => {
 
                   <div className="flex items-center gap-2">
                     {apt.status === 'pending' && (
-                      <button className="btn-outline text-sm py-2">
-                        Cancel
-                      </button>
+                      <button className="btn-outline text-sm py-2">Cancel</button>
                     )}
                     {apt.status === 'confirmed' && (
-                      <button className="btn-outline text-sm py-2">
-                        Reschedule
-                      </button>
+                      <button className="btn-outline text-sm py-2">Reschedule</button>
                     )}
                   </div>
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <p className="text-xs text-gray-500">
-                    Booked on {new Date(apt.createdAt).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric', 
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
+                    Booked on {new Date(apt.created_at || new Date()).toLocaleDateString('en-US', { 
+                      month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
                     })}
                   </p>
                 </div>

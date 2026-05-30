@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { users } from '../utils/mockData'
+import { api } from '../services/api' // Importing our new PostgreSQL service layer
 
 const AuthContext = createContext(null)
 
@@ -17,67 +17,61 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('therapath_user')
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser)
-        setUser(parsedUser)
-        setIsAuthenticated(true)
-      } catch (error) {
-        localStorage.removeItem('therapath_user')
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('therapath_token')
+      if (token) {
+        try {
+          // Fetch real user data from PostgreSQL via backend
+          const userData = await api.auth.getProfile()
+          setUser(userData)
+          setIsAuthenticated(true)
+        } catch (error) {
+          console.error("Session expired or invalid token:", error)
+          localStorage.removeItem('therapath_token')
+        }
       }
+      setLoading(false)
     }
-    setLoading(false)
+
+    initializeAuth()
   }, [])
 
-  const login = (email, password) => {
-    const foundUser = users.find(
-      u => u.email === email && u.password === password
-    )
-
-    if (foundUser) {
-      const userWithoutPassword = { ...foundUser }
-      delete userWithoutPassword.password
+  const login = async (email, password) => {
+    try {
+      // Async API call to PostgreSQL backend
+      const response = await api.auth.login({ email, password })
       
-      setUser(userWithoutPassword)
+      setUser(response.user)
       setIsAuthenticated(true)
-      localStorage.setItem('therapath_user', JSON.stringify(userWithoutPassword))
-      return { success: true, user: userWithoutPassword }
+      
+      // Store JWT token instead of raw user data for security
+      localStorage.setItem('therapath_token', response.token)
+      
+      return { success: true, user: response.user }
+    } catch (error) {
+      return { success: false, message: error.message || 'Invalid email or password' }
     }
-
-    return { success: false, message: 'Invalid email or password' }
   }
 
-  const register = (userData) => {
-    const existingUser = users.find(u => u.email === userData.email)
-    
-    if (existingUser) {
-      return { success: false, message: 'Email already registered' }
+  const register = async (userData) => {
+    try {
+      // Async API call to PostgreSQL backend
+      const response = await api.auth.register(userData)
+      
+      setUser(response.user)
+      setIsAuthenticated(true)
+      localStorage.setItem('therapath_token', response.token)
+      
+      return { success: true, user: response.user }
+    } catch (error) {
+      return { success: false, message: error.message || 'Registration failed' }
     }
-
-    const newUser = {
-      id: users.length + 1,
-      ...userData,
-      role: 'user',
-      createdAt: new Date().toISOString(),
-    }
-
-    users.push(newUser)
-
-    const userWithoutPassword = { ...newUser }
-    delete userWithoutPassword.password
-    
-    setUser(userWithoutPassword)
-    setIsAuthenticated(true)
-    localStorage.setItem('therapath_user', JSON.stringify(userWithoutPassword))
-    
-    return { success: true, user: userWithoutPassword }
   }
 
   const logout = () => {
     setUser(null)
     setIsAuthenticated(false)
-    localStorage.removeItem('therapath_user')
+    localStorage.removeItem('therapath_token')
   }
 
   const value = {
@@ -93,4 +87,3 @@ export const AuthProvider = ({ children }) => {
 }
 
 export default AuthContext
-
