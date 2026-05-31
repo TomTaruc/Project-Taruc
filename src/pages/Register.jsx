@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { User, Mail, Lock, Phone, Eye, EyeOff, Heart, Shield } from 'lucide-react'
+import { User, Mail, Lock, Phone, Eye, EyeOff, Heart } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { validateRegisterForm } from '../utils/validation'
 import showToast from '../components/Toast'
@@ -11,7 +11,6 @@ const Register = () => {
   const { register } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -41,16 +40,19 @@ const Register = () => {
     }
 
     setIsSubmitting(true)
-    const registrationData = { ...formData, role: isAdmin ? 'admin' : 'user' }
-    const result = await register(registrationData)
+    try {
+      const registrationData = { ...formData, email: formData.email.trim(), role: 'user' }
+      const result = await register(registrationData)
 
-    if (result.success) {
-      showToast.success('Account created successfully!')
-      navigate(isAdmin ? '/admin/dashboard' : '/user/dashboard')
-    } else {
-      showToast.error(result.message)
+      if (result.success) {
+        showToast.success('Account created successfully!')
+        navigate('/user/dashboard', { replace: true })
+      } else {
+        showToast.error(result.message)
+      }
+    } finally {
+      setIsSubmitting(false)
     }
-    setIsSubmitting(false)
   }
 
   return (
@@ -70,29 +72,6 @@ const Register = () => {
 
         <div className="glass-card">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 rounded-lg">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={!isAdmin}
-                  onChange={() => setIsAdmin(false)}
-                  className="w-4 h-4 text-primary focus:ring-primary"
-                />
-                <User className="w-4 h-4" />
-                <span className="text-sm font-medium text-gray-700">Register as User</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={isAdmin}
-                  onChange={() => setIsAdmin(true)}
-                  className="w-4 h-4 text-primary focus:ring-primary"
-                />
-                <Shield className="w-4 h-4" />
-                <span className="text-sm font-medium text-gray-700">Register as Admin</span>
-              </label>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <User className="w-4 h-4 inline mr-1" />
@@ -104,6 +83,7 @@ const Register = () => {
                 value={formData.name}
                 onChange={handleChange}
                 className={`input-field ${errors.name ? 'input-error' : ''}`}
+                autoComplete="name"
               />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
             </div>
@@ -119,6 +99,7 @@ const Register = () => {
                 value={formData.email}
                 onChange={handleChange}
                 className={`input-field ${errors.email ? 'input-error' : ''}`}
+                autoComplete="email"
               />
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
             </div>
@@ -135,6 +116,7 @@ const Register = () => {
                 onChange={handleChange}
                 className={`input-field ${errors.phone ? 'input-error' : ''}`}
                 placeholder="09XXXXXXXXX"
+                autoComplete="tel"
               />
               {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
             </div>
@@ -151,7 +133,8 @@ const Register = () => {
                   value={formData.password}
                   onChange={handleChange}
                   className={`input-field pr-12 ${errors.password ? 'input-error' : ''}`}
-                  placeholder="••••••••"
+                  placeholder="Password"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -176,7 +159,8 @@ const Register = () => {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   className={`input-field pr-12 ${errors.confirmPassword ? 'input-error' : ''}`}
-                  placeholder="••••••••"
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
