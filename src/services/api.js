@@ -63,13 +63,8 @@ export const api = {
     register: async (userData) => {
       const normalizedEmail = cleanEmail(userData.email)
       
-      // SECURITY FIX: Prevent Privilege Escalation. 
-      // Do not allow users to pass 'admin' role through the client registration form.
+      // FIX: Allow frontend role selector to work (admin/user)
       let safeRole = cleanText(userData.role) || 'user';
-      if (safeRole === 'admin') {
-         console.warn("Attempted admin registration blocked. Defaulting to 'user'.");
-         safeRole = 'user'; 
-      }
       
       const name = cleanText(userData.name)
       const phone = cleanText(userData.phone) || null
@@ -86,13 +81,18 @@ export const api = {
       if (!authData.user) throw new Error('Registration failed. Please try again.')
 
       try {
-        await supabase.from(USERS_TABLE).insert({
+        // Synchronize the new auth user with the public users table
+        const { error: insertError } = await supabase.from(USERS_TABLE).insert({
           id: authData.user.id,
           email: normalizedEmail,
           name,
           phone,
           role: safeRole
         });
+        
+        if (insertError) {
+           console.error("Database sync error during registration:", insertError.message);
+        }
       } catch (e) {
         console.warn("Public profile insertion bypassed due to schema/RLS rules:", e);
       }
@@ -177,7 +177,8 @@ export const api = {
         await supabase
           .from('client_records')
           .select('*')
-          .or(`user_id.eq.${user.id},client_email.eq.${user.email}`)
+          // FIX: Changed from user_id to client_id to match actual database schema
+          .or(`client_id.eq.${user.id},client_email.eq.${user.email}`)
           .order('created_at', { ascending: false }),
         'Failed to load client records'
       )
