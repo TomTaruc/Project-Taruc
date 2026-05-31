@@ -81,6 +81,17 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await api.auth.register(userData)
+
+      if (response.requiresEmailConfirmation) {
+        setUser(null)
+        setIsAuthenticated(false)
+        return {
+          success: true,
+          requiresEmailConfirmation: true,
+          message: 'Account created. Please check your email to confirm your account before signing in.',
+        }
+      }
+
       setUser(response.user)
       setIsAuthenticated(true)
       return { success: true, user: response.user }
