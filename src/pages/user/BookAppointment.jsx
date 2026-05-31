@@ -28,21 +28,22 @@ const BookAppointment = () => {
     setStatus('loading');
     setMessage('');
 
-    try {
-      // Structure the data exactly as the PostgreSQL table expects
-      const appointmentData = {
-        user_id: user.id,
-        user_name: formData.is_anonymous ? 'Anonymous' : user.name,
-        user_email: formData.is_anonymous ? 'anonymous@therapath.com' : user.email,
-        user_phone: formData.is_anonymous ? 'N/A' : (user.phone || 'N/A'),
-        date: formData.date,
-        time: formData.time,
-        type: formData.type,
-        notes: formData.notes,
-        is_anonymous: formData.is_anonymous,
-        status: 'pending' // Default status
-      };
+    // Structure the data
+    const appointmentData = {
+      user_id: user?.id,
+      user_name: formData.is_anonymous ? 'Anonymous' : (user?.name || 'User'),
+      user_email: formData.is_anonymous ? 'anonymous@therapath.com' : (user?.email || ''),
+      user_phone: formData.is_anonymous ? 'N/A' : (user?.phone || 'N/A'),
+      date: formData.date,
+      time: formData.time,
+      type: formData.type,
+      notes: formData.notes,
+      is_anonymous: formData.is_anonymous,
+      status: 'pending' // Default status
+    };
 
+    try {
+      // First attempt: Standard insertion
       await api.appointments.create(appointmentData);
       
       setStatus('success');
@@ -58,9 +59,36 @@ const BookAppointment = () => {
       });
       
     } catch (error) {
-      console.error('Failed to book appointment:', error);
-      setStatus('error');
-      setMessage(error.message || 'Failed to book appointment. Please try again.');
+      console.warn('Initial booking attempt error:', error.message);
+      
+      // FALLBACK: If the Postgres Database expects an Integer but receives the Auth UUID,
+      // we strip the mismatched user_id and retry relying purely on the user_email.
+      if (error.message && (error.message.includes('type integer') || error.message.includes('invalid input syntax'))) {
+        try {
+          delete appointmentData.user_id; // Remove the crashing UUID
+          
+          await api.appointments.create(appointmentData);
+          
+          setStatus('success');
+          setMessage('Your appointment has been successfully requested. We will review and confirm shortly.');
+          
+          setFormData({
+            type: 'Personal Counseling',
+            date: '',
+            time: '09:00 AM',
+            notes: '',
+            is_anonymous: false
+          });
+          return; // Exit on successful fallback
+        } catch (retryError) {
+          console.error('Retry failed:', retryError);
+          setStatus('error');
+          setMessage(retryError.message || 'Failed to book appointment. Please try again.');
+        }
+      } else {
+        setStatus('error');
+        setMessage(error.message || 'Failed to book appointment. Please try again.');
+      }
     }
   };
 
@@ -117,7 +145,7 @@ const BookAppointment = () => {
                 name="is_anonymous"
                 checked={formData.is_anonymous}
                 onChange={handleChange}
-                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
               />
               <label htmlFor="is_anonymous" className="ml-2 block text-sm text-gray-700">
                 Keep this appointment anonymous

@@ -48,6 +48,7 @@ const Register = () => {
         password: formData.password,
         role: 'user',
       }
+      
       const result = await register(registrationData)
 
       if (result.success) {

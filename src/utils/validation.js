@@ -4,8 +4,9 @@ export const validateEmail = (email) => {
 }
 
 export const validatePhone = (phone) => {
+  const phoneStr = phone || ''
   const phoneRegex = /^[\d\s()-]+$/
-  return phoneRegex.test(phone) && phone.replace(/\D/g, '').length >= 10
+  return phoneRegex.test(phoneStr) && phoneStr.replace(/\D/g, '').length >= 10
 }
 
 export const validatePassword = (password) => {

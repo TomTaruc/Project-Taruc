@@ -19,50 +19,66 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let mounted = true;
+
     const initializeAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user) {
           const profile = await api.auth.getProfile()
-          setUser(profile)
-          setIsAuthenticated(true)
+          if (mounted) {
+            setUser(profile)
+            setIsAuthenticated(true)
+          }
         } else {
+          if (mounted) {
+            setUser(null)
+            setIsAuthenticated(false)
+          }
+        }
+      } catch (error) {
+        console.error("Auth init error:", error)
+        if (mounted) {
           setUser(null)
           setIsAuthenticated(false)
         }
-      } catch (error) {
-        console.error("No active session:", error)
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
 
     initializeAuth()
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        try {
-          const profile = await api.auth.getProfile()
-          setUser(profile)
-          setIsAuthenticated(true)
-        } catch (error) {
-          console.error("Error fetching profile on state shift:", error)
+      // Ignore INITIAL_SESSION as we handle it above to avoid race conditions
+      if (event === 'INITIAL_SESSION') return;
+
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+        if (session?.user) {
+          try {
+            const profile = await api.auth.getProfile()
+            if (mounted) {
+              setUser(profile)
+              setIsAuthenticated(true)
+            }
+          } catch (error) {
+            console.error("Auth state change error:", error)
+          }
+        }
+      } else if (event === 'SIGNED_OUT') {
+        if (mounted) {
           setUser(null)
           setIsAuthenticated(false)
         }
-      } else {
-        setUser(null)
-        setIsAuthenticated(false)
       }
-      setLoading(false)
     })
 
     return () => {
-      authListener.subscription.unsubscribe()
+      mounted = false;
+      authListener?.subscription?.unsubscribe()
     }
   }, [])
 
-  // Robust parameter handling to prevent "undefined email" errors
   const login = async (emailOrObj, passwordArg) => {
     try {
       const email = (typeof emailOrObj === 'object' ? emailOrObj.email : emailOrObj)?.trim()
