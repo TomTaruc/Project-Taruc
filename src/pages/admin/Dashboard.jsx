@@ -6,7 +6,6 @@ import { api } from '../../services/api'
 import StatCard from '../../components/cards/StatCard'
 
 const COLORS = ['#0CA678', '#F9C74F', '#3b82f6', '#ef4444', '#8b5cf6']
-
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 const AdminDashboard = () => {
@@ -15,8 +14,11 @@ const AdminDashboard = () => {
   const [clientRecords, setClientRecords] = useState([])
   const [recentActivity, setRecentActivity] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchAll = async () => {
       try {
         const [appts, inqs, records] = await Promise.all([
@@ -24,11 +26,14 @@ const AdminDashboard = () => {
           api.inquiries.getAllAdmin(),
           api.clientRecords.getAllAdmin(),
         ])
+        
+        if (!isMounted) return;
+
         setAppointments(appts || [])
         setInquiries(inqs || [])
         setClientRecords(records || [])
 
-        // Build recent activity from latest items
+        // Build recent activity from latest items safely
         const activity = []
         if (appts?.length) {
           const sorted = [...appts].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -48,15 +53,22 @@ const AdminDashboard = () => {
             activity.push({ color: 'bg-primary', text: `Client record for ${r.client_name || 'a client'}`, time: r.created_at })
           })
         }
+        
         activity.sort((a, b) => new Date(b.time) - new Date(a.time))
         setRecentActivity(activity.slice(0, 4))
       } catch (err) {
-        console.error('Dashboard fetch error:', err)
+        if (isMounted) {
+          console.error('Dashboard fetch error:', err)
+          setError('Failed to load dashboard data.')
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) setLoading(false)
       }
     }
+    
     fetchAll()
+    
+    return () => { isMounted = false }
   }, [])
 
   // Derived stats
@@ -67,9 +79,11 @@ const AdminDashboard = () => {
   const totalInquiries = inquiries.length
   const pendingInquiries = inquiries.filter(i => i.status === 'pending').length
   const activeRecords = clientRecords.filter(r => r.status === 'active').length
-  const uniqueClients = new Set(appointments.map(a => a.user_email)).size
+  
+  // FIX: Ensure we don't count null/undefined emails as a valid unique user
+  const uniqueClients = new Set(appointments.map(a => a.user_email).filter(Boolean)).size
 
-  // Chart data — appointments by month (last 6 months)
+  // Chart data
   const appointmentChartData = (() => {
     const now = new Date()
     const months = []
@@ -86,7 +100,7 @@ const AdminDashboard = () => {
     return months
   })()
 
-  // Pie chart — appointments by type
+  // Pie chart
   const appointmentTypeData = (() => {
     const counts = {}
     appointments.forEach(a => {
@@ -124,6 +138,10 @@ const AdminDashboard = () => {
         </div>
       </div>
     )
+  }
+
+  if (error) {
+    return <div className="p-8 text-center text-red-500 font-medium">{error}</div>
   }
 
   return (

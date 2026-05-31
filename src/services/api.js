@@ -34,7 +34,7 @@ const getProfileSafely = async (authUser) => {
     console.warn("Could not fetch profile from DB, falling back to auth metadata:", err);
   }
 
-  // Instant Fallback if DB fetch fails or is blocked by RLS (prevents infinite loading)
+  // Instant Fallback if DB fetch fails or is blocked by RLS
   return {
     id: authUser.id,
     email: authUser.email,
@@ -62,8 +62,15 @@ export const api = {
 
     register: async (userData) => {
       const normalizedEmail = cleanEmail(userData.email)
-      // FIX: Removed strict override that forced all registrations to 'user'
-      const role = userData.role || 'user'
+      
+      // SECURITY FIX: Prevent Privilege Escalation. 
+      // Do not allow users to pass 'admin' role through the client registration form.
+      let safeRole = cleanText(userData.role) || 'user';
+      if (safeRole === 'admin') {
+         console.warn("Attempted admin registration blocked. Defaulting to 'user'.");
+         safeRole = 'user'; 
+      }
+      
       const name = cleanText(userData.name)
       const phone = cleanText(userData.phone) || null
 
@@ -71,21 +78,20 @@ export const api = {
         email: normalizedEmail,
         password: userData.password,
         options: {
-          data: { name, phone, role },
+          data: { name, phone, role: safeRole },
         },
       })
 
       if (authError) throw new Error(authError.message || 'Registration failed')
       if (!authData.user) throw new Error('Registration failed. Please try again.')
 
-      // Attempt to insert into public table just ONCE to prevent locking up the UI
       try {
         await supabase.from(USERS_TABLE).insert({
           id: authData.user.id,
           email: normalizedEmail,
           name,
           phone,
-          role
+          role: safeRole
         });
       } catch (e) {
         console.warn("Public profile insertion bypassed due to schema/RLS rules:", e);
@@ -100,11 +106,11 @@ export const api = {
       }
     },
 
-    // FIX: Accept authUser to prevent redundant, blocking supabase.auth.getUser() network calls
     getProfile: async (authUser = null) => {
       let user = authUser;
       
       if (!user) {
+        // Using getUser() ensures server-side validation of the token
         const { data, error } = await supabase.auth.getUser()
         if (error || !data?.user) {
           throw new Error(error?.message || 'Not authenticated')
@@ -122,12 +128,14 @@ export const api = {
 
   appointments: {
     getUserAppointments: async () => {
-      const profile = await api.auth.getProfile()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated");
+      
       return requireList(
         await supabase
           .from('appointments')
           .select('*')
-          .eq('user_id', profile.id)
+          .eq('user_id', user.id)
           .order('date', { ascending: false })
           .order('time', { ascending: true }),
         'Failed to load appointments'
@@ -162,12 +170,14 @@ export const api = {
 
   clientRecords: {
     getUserRecords: async () => {
-      const profile = await api.auth.getProfile()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated");
+
       return requireList(
         await supabase
           .from('client_records')
           .select('*')
-          .or(`user_id.eq.${profile.id},client_email.eq.${profile.email}`)
+          .or(`user_id.eq.${user.id},client_email.eq.${user.email}`)
           .order('created_at', { ascending: false }),
         'Failed to load client records'
       )
@@ -247,12 +257,14 @@ export const api = {
     },
 
     getUserInquiries: async () => {
-      const profile = await api.auth.getProfile()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated");
+
       return requireList(
         await supabase
           .from('inquiries')
           .select('*')
-          .eq('email', profile.email)
+          .eq('email', user.email)
           .order('created_at', { ascending: true }),
         'Failed to load inquiries'
       )
@@ -284,12 +296,14 @@ export const api = {
 
   notifications: {
     getUserNotifications: async () => {
-      const profile = await api.auth.getProfile()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated");
+
       return requireList(
         await supabase
           .from('notifications')
           .select('*')
-          .or(`user_id.eq.${profile.id},user_id.is.null`)
+          .or(`user_id.eq.${user.id},user_id.is.null`)
           .order('created_at', { ascending: false }),
         'Failed to load notifications'
       )

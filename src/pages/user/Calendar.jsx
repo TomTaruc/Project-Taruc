@@ -1,194 +1,103 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
+import { Calendar as CalendarIcon, Clock } from 'lucide-react'
 import { api } from '../../services/api'
+import showToast from '../../components/Toast'
 
-const Calendar = () => {
+const UserCalendar = () => {
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(true)
-  const [currentDate, setCurrentDate] = useState(new Date())
 
   useEffect(() => {
+    let isMounted = true
+
     const fetchAppointments = async () => {
       try {
         const data = await api.appointments.getUserAppointments()
-        setAppointments(data || [])
-      } catch (err) {
-        console.error('Error fetching appointments:', err)
-        setAppointments([])
+        if (isMounted) setAppointments(data || [])
+      } catch (error) {
+        console.error("Fetch error:", error)
+        if (isMounted) showToast.error("Failed to load schedule.")
       } finally {
-        setLoading(false)
+        if (isMounted) setLoading(false)
       }
     }
+
     fetchAppointments()
+    return () => { isMounted = false }
   }, [])
 
-  const getDaysInMonth = (date) => {
-    const year = date.getFullYear()
-    const month = date.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    const daysInMonth = lastDay.getDate()
-    const startingDayOfWeek = firstDay.getDay()
-    return { daysInMonth, startingDayOfWeek, year, month }
-  }
+  // Safely filter and sort upcoming appointments
+  const upcomingAppointments = appointments
+    .filter(a => (a.status === 'confirmed' || a.status === 'pending') && a.date)
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
 
-  const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(currentDate)
-
-  const previousMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))
-  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))
-
-  const getAppointmentsForDay = (day) => {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    return appointments.filter(apt => apt.date === dateStr)
-  }
-
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-  const days = []
-  for (let i = 0; i < startingDayOfWeek; i++) {
-    days.push(<div key={`empty-${i}`} className="p-2 md:p-4"></div>)
-  }
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dayAppointments = getAppointmentsForDay(day)
-    const isToday =
-      day === new Date().getDate() &&
-      month === new Date().getMonth() &&
-      year === new Date().getFullYear()
-
-    days.push(
-      <div
-        key={day}
-        className={`p-2 md:p-4 border border-gray-200 min-h-24 ${isToday ? 'bg-primary/5 border-primary' : 'bg-white'}`}
-      >
-        <div className={`text-sm font-semibold mb-2 ${isToday ? 'text-primary' : 'text-gray-900'}`}>{day}</div>
-        <div className="space-y-1">
-          {dayAppointments.map((apt) => (
-            <div
-              key={apt.id}
-              className={`text-xs p-1 rounded ${
-                apt.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                apt.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-gray-100 text-gray-800'
-              }`}
-            >
-              <div className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                <span>{apt.time}</span>
-              </div>
-              <div className="truncate">{apt.type || apt.appointment_type}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  const upcomingAppointments = appointments.filter(apt => apt.status !== 'cancelled' && apt.status !== 'completed')
+  if (loading) return <div className="p-12 text-center text-gray-500 animate-pulse">Loading calendar...</div>
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Calendar</h1>
-        <p className="text-gray-600">View your appointment schedule</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">My Schedule</h1>
+        <p className="text-gray-600">View your upcoming counseling sessions and events.</p>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="card"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">{monthNames[month]} {year}</h2>
-          <div className="flex items-center gap-2">
-            <button onClick={previousMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200">
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setCurrentDate(new Date())}
-              className="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors duration-200 text-sm font-medium"
-            >
-              Today
-            </button>
-            <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200">
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
+      <div className="card">
+        <div className="flex items-center gap-2 mb-6">
+          <CalendarIcon className="w-6 h-6 text-primary" />
+          <h2 className="text-xl font-semibold">Upcoming Agenda</h2>
         </div>
 
-        {loading ? (
-          <div className="animate-pulse grid grid-cols-7 gap-0 border border-gray-200">
-            {[...Array(35)].map((_, i) => <div key={i} className="h-24 bg-gray-100 border border-gray-200"></div>)}
-          </div>
-        ) : (
-          <div className="grid grid-cols-7 gap-0 border border-gray-200">
-            {dayNames.map((dayName) => (
-              <div key={dayName} className="p-2 md:p-4 bg-gray-50 border-b border-gray-200 text-center font-semibold text-gray-900 text-sm">
-                {dayName}
-              </div>
-            ))}
-            {days}
-          </div>
-        )}
-
-        <div className="mt-6 flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-100 border border-green-200 rounded"></div>
-            <span className="text-gray-700">Confirmed</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-yellow-100 border border-yellow-200 rounded"></div>
-            <span className="text-gray-700">Pending</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-primary/10 border border-primary rounded"></div>
-            <span className="text-gray-700">Today</span>
-          </div>
-        </div>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="card"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Appointments</h3>
-        {loading ? (
-          <div className="space-y-3 animate-pulse">
-            {[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-lg"></div>)}
-          </div>
-        ) : upcomingAppointments.length > 0 ? (
-          <div className="space-y-3">
-            {upcomingAppointments.slice(0, 5).map((apt) => (
-              <div key={apt.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <CalendarIcon className="w-5 h-5 text-primary" />
-                  <div>
-                    <p className="font-medium text-gray-900">{apt.type || apt.appointment_type}</p>
-                    <p className="text-sm text-gray-600">
-                      {apt.date ? new Date(apt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}{apt.time ? ` at ${apt.time}` : ''}
-                    </p>
+        {upcomingAppointments.length > 0 ? (
+          <div className="relative border-l-2 border-gray-100 ml-4 space-y-8 py-4">
+            {upcomingAppointments.map((apt, index) => (
+              <motion.div 
+                key={apt.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="relative pl-6"
+              >
+                {/* Timeline dot */}
+                <div className={`absolute -left-[9px] top-1.5 w-4 h-4 rounded-full border-4 border-white ${apt.status === 'confirmed' ? 'bg-green-500' : 'bg-yellow-400'}`}></div>
+                
+                <div className="bg-gray-50 border border-gray-100 rounded-lg p-5 hover:shadow-md transition">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                    <h3 className="font-bold text-lg text-gray-900">{apt.type}</h3>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium w-fit ${apt.status === 'confirmed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                      {apt.status.toUpperCase()}
+                    </span>
                   </div>
+                  
+                  <div className="flex items-center gap-4 text-gray-600 text-sm mb-3">
+                    <span className="flex items-center gap-1 font-medium">
+                      <CalendarIcon className="w-4 h-4" /> 
+                      {new Date(apt.date).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
+                    </span>
+                    <span className="flex items-center gap-1 font-medium">
+                      <Clock className="w-4 h-4" /> 
+                      {apt.time}
+                    </span>
+                  </div>
+                  
+                  {apt.notes && (
+                    <p className="text-sm text-gray-500 bg-white p-3 rounded border border-gray-100">
+                      {apt.notes}
+                    </p>
+                  )}
                 </div>
-                <span className={`badge ${apt.status === 'confirmed' ? 'badge-success' : 'badge-warning'}`}>
-                  {apt.status}
-                </span>
-              </div>
+              </motion.div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-8">
-            <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No upcoming appointments</p>
+          <div className="text-center py-16 text-gray-500">
+            <CalendarIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+            <h3 className="text-lg font-medium text-gray-900">Your schedule is clear</h3>
+            <p>You have no upcoming sessions booked.</p>
           </div>
         )}
-      </motion.div>
+      </div>
     </div>
   )
 }
 
-export default Calendar
+export default UserCalendar

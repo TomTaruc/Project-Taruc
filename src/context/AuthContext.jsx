@@ -31,13 +31,16 @@ export const AuthProvider = ({ children }) => {
 
     const initializeAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // SECURITY FIX: getUser() queries the server. getSession() only queries local storage.
+        const { data: { user: authUser }, error } = await supabase.auth.getUser()
         
-        if (error) throw error;
+        if (error) {
+           // Token might be expired or invalid
+           console.warn("Auth verification failed or no session found:", error.message);
+        }
 
-        if (session?.user) {
-          // Pass session.user directly to prevent redundant and blocking network fetches
-          const profile = await api.auth.getProfile(session.user)
+        if (authUser) {
+          const profile = await api.auth.getProfile(authUser)
           if (isSubscribed) {
             setUser(profile)
             setIsAuthenticated(true)
@@ -64,7 +67,6 @@ export const AuthProvider = ({ children }) => {
     initializeAuth()
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Ignore INITIAL_SESSION as we handle it above to avoid race conditions
       if (event === 'INITIAL_SESSION') return;
 
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
@@ -95,7 +97,7 @@ export const AuthProvider = ({ children }) => {
       clearTimeout(timeoutId);
       authListener?.subscription?.unsubscribe()
     }
-  }, [loading])
+  }, []) // FIX: Removed 'loading' from dependency array to prevent infinite re-renders
 
   const login = async (emailOrObj, passwordArg) => {
     try {
@@ -136,12 +138,14 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = async () => {
+    // FIX: Optimistically clear user state FIRST, so UI immediately reflects logged out status,
+    // even if the backend network call fails.
+    setUser(null)
+    setIsAuthenticated(false)
     try {
       await api.auth.logout()
-      setUser(null)
-      setIsAuthenticated(false)
     } catch (error) {
-      console.error("Logout glitch:", error)
+      console.error("Logout network glitch:", error)
     }
   }
 

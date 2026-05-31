@@ -5,10 +5,12 @@ import { useAuth } from './context/AuthContext'
 import Sidebar from './components/Layout/Sidebar'
 import Navbar from './components/Layout/Navbar'
 import Footer from './components/Layout/Footer'
+
 import Home from './pages/Home'
 import About from './pages/About'
 import Login from './pages/Login'
 import Register from './pages/Register'
+
 import UserDashboard from './pages/user/Dashboard'
 import BookAppointment from './pages/user/BookAppointment'
 import MyAppointments from './pages/user/MyAppointments'
@@ -16,6 +18,7 @@ import UserCalendar from './pages/user/Calendar'
 import UserAnnouncements from './pages/user/Announcements'
 import UserNotifications from './pages/user/Notifications'
 import Chat from './pages/user/Chat'
+
 import AdminDashboard from './pages/admin/Dashboard'
 import ManageAppointments from './pages/admin/ManageAppointments'
 import ClientRecords from './pages/admin/ClientRecords'
@@ -27,16 +30,29 @@ import InquiryManager from './pages/admin/InquiryManager'
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { user, isAuthenticated, loading } = useAuth()
+  
   if (loading) return null
-  if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (adminOnly && user?.role !== 'admin') return <Navigate to="/user/dashboard" replace />
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+  
+  if (adminOnly && user?.role !== 'admin') {
+    return <Navigate to="/user/dashboard" replace />
+  }
+  
   return children
 }
 
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, user, loading } = useAuth()
+  
   if (loading) return null
-  if (isAuthenticated) return <Navigate to={user?.role === 'admin' ? '/admin/dashboard' : '/user/dashboard'} replace />
+  
+  if (isAuthenticated) {
+    return <Navigate to={user?.role === 'admin' ? '/admin/dashboard' : '/user/dashboard'} replace />
+  }
+  
   return children
 }
 
@@ -44,20 +60,19 @@ const ScrollToTop = () => {
   const { pathname } = useLocation()
   
   useEffect(() => {
-    // Reset the dashboard scroll area if it exists
-    const dashboardScrollEl = document.getElementById('main-scroll-area')
-    if (dashboardScrollEl) {
-      dashboardScrollEl.scrollTo(0, 0)
-    }
+    // Graceful fallback scroll mechanism matching standard browser behavior
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
     
-    // Reset the public page scroll area if it exists
-    const publicScrollEl = document.getElementById('public-scroll-area')
-    if (publicScrollEl) {
-      publicScrollEl.scrollTo(0, 0)
+    // Safely attempt to scroll internal custom containers if they are mounted
+    try {
+      const dashboardScrollEl = document.getElementById('main-scroll-area')
+      if (dashboardScrollEl) dashboardScrollEl.scrollTo(0, 0)
+      
+      const publicScrollEl = document.getElementById('public-scroll-area')
+      if (publicScrollEl) publicScrollEl.scrollTo(0, 0)
+    } catch (error) {
+      console.warn('Scroll reset warning: Containers not mounted yet.');
     }
-
-    // Fallback for standard window scroll
-    window.scrollTo(0, 0)
   }, [pathname])
   
   return null
@@ -84,10 +99,11 @@ const App = () => {
             <Navbar />
             <div
               id="main-scroll-area"
-              className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pt-20"
+              className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pt-20 relative"
             >
               <main className="p-4 lg:p-6 flex-1">
                 <Routes>
+                  {/* User Routes */}
                   <Route path="/user/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
                   <Route path="/user/book-appointment" element={<ProtectedRoute><BookAppointment /></ProtectedRoute>} />
                   <Route path="/user/my-appointments" element={<ProtectedRoute><MyAppointments /></ProtectedRoute>} />
@@ -95,6 +111,8 @@ const App = () => {
                   <Route path="/user/announcements" element={<ProtectedRoute><UserAnnouncements /></ProtectedRoute>} />
                   <Route path="/user/notifications" element={<ProtectedRoute><UserNotifications /></ProtectedRoute>} />
                   <Route path="/user/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+                  
+                  {/* Admin Routes */}
                   <Route path="/admin/dashboard" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
                   <Route path="/admin/appointments" element={<ProtectedRoute adminOnly><ManageAppointments /></ProtectedRoute>} />
                   <Route path="/admin/records" element={<ProtectedRoute adminOnly><ClientRecords /></ProtectedRoute>} />
@@ -103,6 +121,8 @@ const App = () => {
                   <Route path="/admin/counselors" element={<ProtectedRoute adminOnly><CounselorRoster /></ProtectedRoute>} />
                   <Route path="/admin/barangay-map" element={<ProtectedRoute adminOnly><BarangayMap /></ProtectedRoute>} />
                   <Route path="/admin/follow-ups" element={<ProtectedRoute adminOnly><FollowUpReminders /></ProtectedRoute>} />
+                  
+                  {/* Catch-All */}
                   <Route path="*" element={<Navigate to="/user/dashboard" replace />} />
                 </Routes>
               </main>
@@ -115,7 +135,7 @@ const App = () => {
           <Navbar />
           <div 
             id="public-scroll-area"
-            className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pt-16"
+            className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col pt-16 relative"
           >
             <main className="flex-1">
               <Routes>

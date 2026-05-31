@@ -1,309 +1,179 @@
 import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Send, MessageCircle, User, Clock, CheckCircle, Heart, Shield } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Send, User, MessageCircle } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { api } from '../../services/api'
+import { supabase } from '../../services/supabase'
 import showToast from '../../components/Toast'
 
 const Chat = () => {
   const { user } = useAuth()
   const [messages, setMessages] = useState([])
-  const [inputText, setInputText] = useState('')
-  const [subject, setSubject] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
-  const [hasStarted, setHasStarted] = useState(false)
+  const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef(null)
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
   useEffect(() => {
-    const loadInquiries = async () => {
+    let isMounted = true
+
+    const fetchMessages = async () => {
       try {
-        const userInquiries = await api.inquiries.getUserInquiries()
-        if (userInquiries && userInquiries.length > 0) {
-          setHasStarted(true)
-          const chatMessages = []
-          userInquiries.forEach(inquiry => {
-            chatMessages.push({
-              id: `user-${inquiry.id}`,
-              sender: 'user',
-              text: inquiry.message,
-              subject: inquiry.subject,
-              timestamp: inquiry.created_at,
-              status: inquiry.status,
-            })
-            if (inquiry.status === 'responded' && inquiry.response) {
-              chatMessages.push({
-                id: `counselor-${inquiry.id}`,
-                sender: 'counselor',
-                text: inquiry.response,
-                timestamp: inquiry.responded_at || inquiry.created_at,
-                counselorName: 'TheraPath Counselor',
-              })
-            }
-          })
-          chatMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-          setMessages(chatMessages)
-        } else {
-          setMessages([{
-            id: 'welcome',
-            sender: 'counselor',
-            text: `Hello ${user?.name?.split(' ')[0]}! 👋 Welcome to TheraPath Chat. I'm here to listen and support you. Feel free to share anything on your mind — this is a safe and confidential space. How can I help you today?`,
-            timestamp: new Date().toISOString(),
-            counselorName: 'TheraPath Counselor',
-          }])
-        }
-      } catch (err) {
-        console.error('Error loading inquiries:', err)
-        setMessages([{
-          id: 'welcome',
-          sender: 'counselor',
-          text: `Hello ${user?.name?.split(' ')[0]}! 👋 Welcome to TheraPath Chat. How can I help you today?`,
-          timestamp: new Date().toISOString(),
-          counselorName: 'TheraPath Counselor',
-        }])
+        // Fetch historical messages between user and counselor
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+          .order('created_at', { ascending: true })
+
+        if (error) throw error
+        if (isMounted) setMessages(data || [])
+      } catch (error) {
+        console.error("Chat load error:", error)
       } finally {
-        setLoading(false)
+        if (isMounted) setLoading(false)
+        scrollToBottom()
       }
     }
-    if (user) loadInquiries()
-  }, [user])
 
+    if (user?.id) {
+      fetchMessages()
+
+      // Real-time subscription to catch incoming messages
+      const channel = supabase
+        .channel('public:messages')
+        .on('postgres_changes', { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'messages',
+            filter: `receiver_id=eq.${user.id}`
+        }, (payload) => {
+          if (isMounted) {
+            setMessages(prev => [...prev, payload.new])
+            scrollToBottom()
+          }
+        })
+        .subscribe()
+
+      return () => {
+        isMounted = false
+        supabase.removeChannel(channel)
+      }
+    }
+  }, [user?.id])
+
+  // Scroll when new messages appear
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    scrollToBottom()
   }, [messages])
 
-  const handleSend = async () => {
-    if (!inputText.trim() || sending) return
+  const handleSendMessage = async (e) => {
+    e.preventDefault()
+    if (!newMessage.trim() || sending) return
 
-    const msgSubject = subject.trim() || 'Chat Message'
-    const msgText = inputText.trim()
-
-    const userMsg = {
-      id: `user-${Date.now()}`,
-      sender: 'user',
-      text: msgText,
-      subject: msgSubject,
-      timestamp: new Date().toISOString(),
-      status: 'pending',
-    }
-    setMessages(prev => [...prev, userMsg])
-    setInputText('')
-    setSubject('')
-    setHasStarted(true)
+    const messageText = newMessage.trim()
+    setNewMessage('')
     setSending(true)
 
+    // Construct message object
+    const msgData = {
+      sender_id: user.id,
+      sender_name: user.name,
+      // Assuming a generic counselor ID or null for broadcast in this demo schema
+      receiver_id: 'counselor', 
+      content: messageText,
+    }
+
+    // Optimistic UI Update
+    const optimisticMsg = { ...msgData, id: Date.now().toString(), created_at: new Date().toISOString() }
+    setMessages(prev => [...prev, optimisticMsg])
+
     try {
-      await api.inquiries.create({
-        name: user?.name || 'User',
-        email: user?.email || '',
-        phone: user?.phone || null,
-        subject: msgSubject,
-        message: msgText,
-        status: 'pending',
-      })
-      showToast.success('Message sent to counselor!')
-    } catch (err) {
-      console.error('Error sending inquiry:', err)
-      showToast.error('Failed to send message. Please try again.')
+      const { error } = await supabase.from('messages').insert([msgData])
+      if (error) throw error
+    } catch (error) {
+      console.error("Send failed:", error)
+      // Revert optimistic update on failure
+      setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id))
+      showToast.error("Failed to send message.")
+      setNewMessage(messageText) // Put text back in input
     } finally {
       setSending(false)
     }
-
-    setIsTyping(true)
-    setTimeout(() => {
-      setIsTyping(false)
-      const autoReply = {
-        id: `auto-${Date.now()}`,
-        sender: 'counselor',
-        text: "Thank you for reaching out! Your message has been received and a counselor will respond shortly. If this is an emergency, please call our crisis hotline at +63 912 345 6789.",
-        timestamp: new Date().toISOString(),
-        counselorName: 'TheraPath Counselor',
-      }
-      setMessages(prev => [...prev, autoReply])
-    }, 2000)
   }
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
+  if (loading) {
+    return <div className="flex h-[80vh] items-center justify-center text-gray-500 animate-pulse">Connecting to secure chat...</div>
   }
-
-  const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-  }
-
-  const formatDate = (timestamp) => {
-    const date = new Date(timestamp)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-    if (date.toDateString() === today.toDateString()) return 'Today'
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
-
-  const groupedMessages = messages.reduce((groups, msg) => {
-    const dateKey = formatDate(msg.timestamp)
-    if (!groups[dateKey]) groups[dateKey] = []
-    groups[dateKey].push(msg)
-    return groups
-  }, {})
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] max-w-4xl mx-auto">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="card mb-0 rounded-b-none border-b-0 flex items-center justify-between"
-      >
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center shadow-md">
-              <Heart className="w-6 h-6 text-white" />
-            </div>
-            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></span>
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">TheraPath Counselor</h2>
-            <p className="text-xs text-green-600 font-medium flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-green-500 rounded-full inline-block"></span>
-              Available · Replies sent to your inbox
-            </p>
-          </div>
+    <div className="flex flex-col h-[85vh] max-w-4xl mx-auto card p-0 overflow-hidden">
+      {/* Chat Header */}
+      <div className="p-4 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
+        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+          <MessageCircle className="w-5 h-5 text-primary" />
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
-          <Shield className="w-3.5 h-3.5 text-primary" />
-          <span>100% Confidential</span>
+        <div>
+          <h2 className="font-bold text-gray-900">Counselor Chat</h2>
+          <p className="text-xs text-green-600 flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-green-500"></span> Online
+          </p>
         </div>
-      </motion.div>
+      </div>
 
       {/* Messages Area */}
-      <div className="flex-1 bg-white border border-gray-200 border-t-0 border-b-0 overflow-y-auto px-4 py-4 space-y-2">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-pulse text-gray-400">Loading messages...</div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
+        {messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-gray-400">
+            <MessageCircle className="w-12 h-12 mb-3 opacity-20" />
+            <p>Send a message to start the conversation.</p>
           </div>
         ) : (
-          Object.entries(groupedMessages).map(([date, msgs]) => (
-            <div key={date}>
-              <div className="flex items-center gap-3 my-4">
-                <div className="flex-1 h-px bg-gray-200"></div>
-                <span className="text-xs text-gray-400 font-medium px-2">{date}</span>
-                <div className="flex-1 h-px bg-gray-200"></div>
-              </div>
-              {msgs.map((msg, idx) => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.03 }}
-                  className={`flex mb-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  {msg.sender === 'counselor' && (
-                    <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center mr-2 flex-shrink-0 self-end mb-1 shadow-sm">
-                      <Heart className="w-4 h-4 text-white" />
-                    </div>
-                  )}
-                  <div className={`max-w-[70%] ${msg.sender === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
-                    {msg.sender === 'counselor' && (
-                      <span className="text-xs text-gray-500 mb-1 ml-1">{msg.counselorName}</span>
-                    )}
-                    {msg.subject && msg.sender === 'user' && (
-                      <span className="text-xs text-gray-400 mb-1 mr-1">Re: {msg.subject}</span>
-                    )}
-                    <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                      msg.sender === 'user'
-                        ? 'bg-primary text-white rounded-tr-sm'
-                        : 'bg-gray-100 text-gray-800 rounded-tl-sm'
-                    }`}>
-                      {msg.text}
-                    </div>
-                    <div className={`flex items-center gap-1 mt-1 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <span className="text-xs text-gray-400">{formatTime(msg.timestamp)}</span>
-                      {msg.sender === 'user' && (
-                        msg.status === 'responded'
-                          ? <CheckCircle className="w-3 h-3 text-primary" />
-                          : <Clock className="w-3 h-3 text-gray-400" />
-                      )}
-                    </div>
-                  </div>
-                  {msg.sender === 'user' && (
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center ml-2 flex-shrink-0 self-end mb-1 shadow-sm">
-                      <User className="w-4 h-4 text-gray-600" />
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-          ))
+          messages.map((msg) => {
+            const isMe = msg.sender_id === user?.id
+            return (
+              <motion.div 
+                key={msg.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+              >
+                <div className={`max-w-[75%] px-4 py-2 rounded-2xl ${isMe ? 'bg-primary text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'}`}>
+                  <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                </div>
+                <span className="text-[10px] text-gray-400 mt-1 mx-1">
+                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </motion.div>
+            )
+          })
         )}
-
-        <AnimatePresence>
-          {isTyping && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="flex items-end gap-2 mb-3"
-            >
-              <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center shadow-sm">
-                <Heart className="w-4 h-4 text-white" />
-              </div>
-              <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="card rounded-t-none border-t-0"
-      >
-        {!hasStarted && (
-          <div className="mb-3">
-            <input
-              type="text"
-              placeholder="Subject (e.g. Academic Stress, Career Guidance...)"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="input-field text-sm"
-            />
-          </div>
-        )}
-        <div className="flex items-end gap-3">
-          <textarea
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message... (Press Enter to send)"
-            rows={2}
-            className="input-field resize-none flex-1 text-sm"
+      <div className="p-4 bg-gray-50 border-t border-gray-100">
+        <form onSubmit={handleSendMessage} className="flex gap-2 relative">
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type your message securely..."
+            className="flex-1 input-field pr-12 py-3 bg-white"
+            disabled={sending}
           />
-          <button
-            onClick={handleSend}
-            disabled={!inputText.trim() || sending}
-            className="btn-primary flex-shrink-0 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed h-[52px] px-5"
+          <button 
+            type="submit" 
+            disabled={!newMessage.trim() || sending}
+            className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-white transition ${!newMessage.trim() || sending ? 'bg-gray-300 cursor-not-allowed' : 'bg-primary hover:bg-primary/90'}`}
           >
             <Send className="w-4 h-4" />
-            <span className="hidden sm:inline">{sending ? 'Sending...' : 'Send'}</span>
           </button>
-        </div>
-        <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-          <Shield className="w-3 h-3" />
-          Your messages are confidential and sent directly to a counselor via the Inquiry Manager.
-        </p>
-      </motion.div>
+        </form>
+      </div>
     </div>
   )
 }

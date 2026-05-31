@@ -11,28 +11,35 @@ const ClientRecords = () => {
   const [selectedRecord, setSelectedRecord] = useState(null)
 
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchRecords = async () => {
       try {
         const data = await api.clientRecords.getAllAdmin()
-        setRecords(data || [])
+        if (isMounted) setRecords(data || [])
       } catch (err) {
         console.error('Error fetching client records:', err)
-        setRecords([])
+        if (isMounted) setRecords([])
       } finally {
-        setLoading(false)
+        if (isMounted) setLoading(false)
       }
     }
+    
     fetchRecords()
+    
+    return () => { isMounted = false }
   }, [])
 
   const filteredRecords = records.filter(record => {
     const name = record.client_name || ''
     const type = record.session_type || ''
     const counselor = record.counselor || ''
+    
     const matchesSearch =
       name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       type.toLowerCase().includes(searchTerm.toLowerCase()) ||
       counselor.toLowerCase().includes(searchTerm.toLowerCase())
+      
     const matchesFilter = filterStatus === 'all' || record.status === filterStatus
     return matchesSearch && matchesFilter
   })

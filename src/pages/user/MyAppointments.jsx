@@ -1,234 +1,127 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Calendar, Clock, FileText, Filter, Search } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { Calendar, Clock, XCircle } from 'lucide-react'
 import { api } from '../../services/api'
+import showToast from '../../components/Toast'
+import ConfirmModal from '../../components/modals/ConfirmModal'
 
 const MyAppointments = () => {
-  const { user } = useAuth()
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
-  
-  const [userAppointments, setUserAppointments] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [appointments, setAppointments] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [cancelModal, setCancelModal] = useState(null)
 
   useEffect(() => {
+    let isMounted = true
+    
     const fetchAppointments = async () => {
       try {
-        setIsLoading(true)
         const data = await api.appointments.getUserAppointments()
-        setUserAppointments(data || [])
+        if (isMounted) setAppointments(data || [])
       } catch (error) {
-        console.error('Failed to fetch appointments:', error)
+        console.error("Fetch error:", error)
+        if (isMounted) showToast.error("Failed to load appointments.")
       } finally {
-        setIsLoading(false)
+        if (isMounted) setLoading(false)
       }
     }
 
-    if (user) {
-      fetchAppointments()
-    }
-  }, [user])
+    fetchAppointments()
+    return () => { isMounted = false }
+  }, [])
 
-  const filteredAppointments = userAppointments.filter(apt => {
-    const matchesSearch = apt.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (apt.notes && apt.notes.toLowerCase().includes(searchTerm.toLowerCase()))
-    const matchesFilter = filterStatus === 'all' || apt.status === filterStatus
-    return matchesSearch && matchesFilter
-  })
+  const handleCancel = async (id) => {
+    const previous = [...appointments]
+    
+    // Optimistic UI Update: Instantly change status to cancelled
+    setAppointments(appointments.map(apt => 
+      apt.id === id ? { ...apt, status: 'cancelled' } : apt
+    ))
+    setCancelModal(null)
+
+    try {
+      await api.appointments.updateStatus(id, 'cancelled')
+      showToast.success("Appointment cancelled successfully.")
+    } catch (error) {
+      console.error("Cancel failed:", error)
+      setAppointments(previous) // Revert on failure
+      showToast.error("Failed to cancel appointment. Please try again.")
+    }
+  }
 
   const getStatusBadge = (status) => {
     const badges = {
-      confirmed: 'badge-success',
-      pending: 'badge-warning',
-      completed: 'badge-info',
-      cancelled: 'badge-error',
+      confirmed: 'bg-green-100 text-green-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+      completed: 'bg-blue-100 text-blue-800',
+      cancelled: 'bg-red-100 text-red-800',
     }
-    return badges[status] || 'badge'
+    return badges[status?.toLowerCase()] || 'bg-gray-100 text-gray-800'
   }
 
-  const getStatusColor = (status) => {
-    const colors = {
-      confirmed: 'border-green-500',
-      pending: 'border-yellow-500',
-      completed: 'border-blue-500',
-      cancelled: 'border-red-500',
-    }
-    return colors[status] || 'border-gray-300'
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64 text-gray-500">
-        <Clock className="w-8 h-8 animate-spin" />
-        <span className="ml-3">Loading your appointments...</span>
-      </div>
-    )
-  }
+  if (loading) return <div className="p-12 text-center text-gray-500 animate-pulse">Loading appointments...</div>
 
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">My Appointments</h1>
-        <p className="text-gray-600">View and manage all your counseling appointments</p>
+        <p className="text-gray-600">Track and manage your counseling sessions.</p>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="card"
-      >
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search appointments..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-field pl-10"
-            />
-          </div>
-          <div className="sm:w-48">
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="input-field pl-10 appearance-none"
-              >
-                <option value="all">All Status</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {filteredAppointments.length > 0 ? (
-          <div className="space-y-4">
-            {filteredAppointments.map((apt, index) => (
-              <motion.div
-                key={apt.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className={`p-6 border-l-4 ${getStatusColor(apt.status)} bg-gray-50 rounded-lg hover:shadow-md transition-all duration-200`}
-              >
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{apt.type}</h3>
-                      <span className={`badge ${getStatusBadge(apt.status)}`}>
-                        {apt.status}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Calendar className="w-4 h-4" />
-                        <span>
-                          {new Date(apt.date).toLocaleDateString('en-US', { 
-                            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-                          })}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Clock className="w-4 h-4" />
-                        <span>{apt.time}</span>
-                      </div>
-                      
-                      {apt.notes && (
-                        <div className="flex items-start gap-2 text-sm text-gray-600">
-                          <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <span className="line-clamp-2">{apt.notes}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {apt.status === 'pending' && (
-                      <button className="btn-outline text-sm py-2">Cancel</button>
-                    )}
-                    {apt.status === 'confirmed' && (
-                      <button className="btn-outline text-sm py-2">Reschedule</button>
-                    )}
-                  </div>
+      <div className="space-y-4">
+        {appointments.length > 0 ? (
+          appointments.map((apt, index) => (
+            <motion.div 
+              key={apt.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="card flex flex-col md:flex-row md:items-center justify-between gap-4 border-l-4 border-primary"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-bold text-lg text-gray-900">{apt.type}</h3>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${getStatusBadge(apt.status)}`}>
+                    {apt.status.toUpperCase()}
+                  </span>
                 </div>
-
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-xs text-gray-500">
-                    Booked on {new Date(apt.created_at || new Date()).toLocaleDateString('en-US', { 
-                      month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                    })}
-                  </p>
+                
+                <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                  <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {new Date(apt.date).toLocaleDateString()}</span>
+                  <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {apt.time}</span>
                 </div>
-              </motion.div>
-            ))}
-          </div>
+                
+                {apt.notes && (
+                  <p className="text-sm text-gray-500 mt-2"><span className="font-medium text-gray-700">Notes:</span> {apt.notes}</p>
+                )}
+              </div>
+
+              {apt.status === 'pending' && (
+                <button 
+                  onClick={() => setCancelModal(apt)}
+                  className="px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center gap-2 transition"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Cancel Session
+                </button>
+              )}
+            </motion.div>
+          ))
         ) : (
-          <div className="text-center py-12">
-            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No appointments found</h3>
-            <p className="text-gray-600 mb-6">
-              {searchTerm || filterStatus !== 'all'
-                ? 'Try adjusting your search or filter'
-                : 'You haven\'t booked any appointments yet'}
-            </p>
+          <div className="card text-center py-12 text-gray-500">
+            <Calendar className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+            <p>You have no appointment history.</p>
           </div>
         )}
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="grid md:grid-cols-3 gap-6"
-      >
-        <div className="card bg-green-50 border-green-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-green-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900">Confirmed</h3>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {userAppointments.filter(apt => apt.status === 'confirmed').length}
-          </p>
-          <p className="text-sm text-gray-600 mt-1">Ready to attend</p>
-        </div>
-
-        <div className="card bg-yellow-50 border-yellow-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <Clock className="w-5 h-5 text-yellow-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900">Pending</h3>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {userAppointments.filter(apt => apt.status === 'pending').length}
-          </p>
-          <p className="text-sm text-gray-600 mt-1">Awaiting confirmation</p>
-        </div>
-
-        <div className="card bg-blue-50 border-blue-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <FileText className="w-5 h-5 text-blue-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900">Completed</h3>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {userAppointments.filter(apt => apt.status === 'completed').length}
-          </p>
-          <p className="text-sm text-gray-600 mt-1">Past sessions</p>
-        </div>
-      </motion.div>
+      <ConfirmModal 
+        isOpen={!!cancelModal} 
+        onConfirm={() => handleCancel(cancelModal.id)} 
+        onClose={() => setCancelModal(null)} 
+        title="Cancel Appointment" 
+        message="Are you sure you want to cancel this appointment? This action cannot be undone." 
+        type="danger" 
+      />
     </div>
   )
 }

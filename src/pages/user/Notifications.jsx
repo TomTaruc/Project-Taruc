@@ -1,233 +1,128 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Bell, Calendar, CheckCircle, Megaphone, AlertCircle, Trash2, Check } from 'lucide-react'
+import { Bell, Check, Trash2 } from 'lucide-react'
 import { api } from '../../services/api'
 import showToast from '../../components/Toast'
 
-const Notifications = () => {
+const UserNotifications = () => {
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filterType, setFilterType] = useState('all')
 
   useEffect(() => {
+    let isMounted = true
+
     const fetchNotifications = async () => {
       try {
         const data = await api.notifications.getUserNotifications()
-        setNotifications(data || [])
-      } catch (err) {
-        console.error('Error fetching notifications:', err)
-        setNotifications([])
+        if (isMounted) setNotifications(data || [])
+      } catch (error) {
+        console.error("Fetch error:", error)
+        if (isMounted) showToast.error("Failed to load notifications.")
       } finally {
-        setLoading(false)
+        if (isMounted) setLoading(false)
       }
     }
+
     fetchNotifications()
+    return () => { isMounted = false }
   }, [])
 
-  const unreadCount = notifications.filter(n => !n.read).length
-
-  const filteredNotifications = filterType === 'all'
-    ? notifications
-    : filterType === 'unread'
-    ? notifications.filter(n => !n.read)
-    : notifications.filter(n => n.read)
-
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'appointment_confirmed': return <CheckCircle className="w-5 h-5 text-green-600" />
-      case 'appointment_reminder': return <Calendar className="w-5 h-5 text-blue-600" />
-      case 'appointment_cancelled': return <AlertCircle className="w-5 h-5 text-red-600" />
-      case 'announcement': return <Megaphone className="w-5 h-5 text-primary" />
-      default: return <Bell className="w-5 h-5 text-gray-600" />
-    }
-  }
-
   const handleMarkAsRead = async (id) => {
+    const previous = [...notifications]
+    
+    // Optimistic Update
+    setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n))
+
     try {
       await api.notifications.markAsRead(id)
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-      showToast.success('Notification marked as read')
-    } catch (err) {
-      console.error('Error marking notification as read:', err)
-      showToast.error('Failed to update notification')
-    }
-  }
-
-  const handleMarkAllAsRead = async () => {
-    try {
-      const unread = notifications.filter(n => !n.read)
-      await Promise.all(unread.map(n => api.notifications.markAsRead(n.id)))
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-      showToast.success('All notifications marked as read')
-    } catch (err) {
-      console.error('Error marking all as read:', err)
-      showToast.error('Failed to update notifications')
+    } catch (error) {
+      console.error("Update failed:", error)
+      setNotifications(previous) // Revert on failure
+      showToast.error("Failed to mark as read.")
     }
   }
 
   const handleDelete = async (id) => {
+    const previous = [...notifications]
+    
+    // Optimistic Update
+    setNotifications(notifications.filter(n => n.id !== id))
+
     try {
       await api.notifications.delete(id)
-      setNotifications(prev => prev.filter(n => n.id !== id))
-      showToast.success('Notification deleted')
-    } catch (err) {
-      console.error('Error deleting notification:', err)
-      showToast.error('Failed to delete notification')
+      showToast.success("Notification deleted.")
+    } catch (error) {
+      console.error("Delete failed:", error)
+      setNotifications(previous) // Revert on failure
+      showToast.error("Failed to delete notification.")
     }
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-48 mb-4"></div>
-        <div className="space-y-3">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-200 rounded-lg"></div>)}
-        </div>
-      </div>
-    )
-  }
+  if (loading) return <div className="p-12 text-center text-gray-500 animate-pulse">Loading notifications...</div>
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Notifications</h1>
-            <p className="text-gray-600">
-              You have {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
-            </p>
-          </div>
-          {unreadCount > 0 && (
-            <button onClick={handleMarkAllAsRead} className="btn-outline flex items-center gap-2">
-              <Check className="w-4 h-4" />
-              Mark All as Read
-            </button>
-          )}
-        </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Notifications</h1>
+        <p className="text-gray-600">Updates regarding your appointments and account.</p>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="card"
-      >
-        <div className="flex items-center gap-2 mb-6">
-          {[
-            { key: 'all', label: `All (${notifications.length})` },
-            { key: 'unread', label: `Unread (${unreadCount})` },
-            { key: 'read', label: `Read (${notifications.length - unreadCount})` },
-          ].map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setFilterType(key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                filterType === key ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+      <div className="space-y-3">
+        {notifications.length > 0 ? (
+          notifications.map((notif, index) => (
+            <motion.div 
+              key={notif.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className={`p-4 rounded-lg border flex items-start justify-between gap-4 transition-colors ${notif.read ? 'bg-white border-gray-100' : 'bg-blue-50 border-blue-100'}`}
             >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {filteredNotifications.length > 0 ? (
-          <div className="space-y-3">
-            {filteredNotifications.map((notification, index) => (
-              <motion.div
-                key={notification.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className={`p-4 rounded-lg border-l-4 transition-all duration-200 ${
-                  notification.read ? 'bg-gray-50 border-gray-300' : 'bg-blue-50 border-primary'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      notification.read ? 'bg-gray-100' : 'bg-white'
-                    }`}>
-                      {getNotificationIcon(notification.type)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-1">
-                        <h3 className={`font-semibold ${notification.read ? 'text-gray-700' : 'text-gray-900'}`}>
-                          {notification.title}
-                        </h3>
-                        {!notification.read && <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2"></span>}
-                      </div>
-                      <p className={`text-sm mb-2 ${notification.read ? 'text-gray-600' : 'text-gray-700'}`}>
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(notification.created_at).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!notification.read && (
-                      <button
-                        onClick={() => handleMarkAsRead(notification.id)}
-                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors duration-200"
-                        title="Mark as read"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(notification.id)}
-                      className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors duration-200"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+              <div className="flex items-start gap-3 flex-1">
+                <div className={`p-2 rounded-full mt-1 ${notif.read ? 'bg-gray-100 text-gray-400' : 'bg-blue-100 text-blue-600'}`}>
+                  <Bell className="w-4 h-4" />
                 </div>
-              </motion.div>
-            ))}
-          </div>
+                <div>
+                  <h4 className={`text-md ${notif.read ? 'text-gray-700 font-medium' : 'text-gray-900 font-bold'}`}>
+                    {notif.title}
+                  </h4>
+                  <p className={`text-sm mt-1 ${notif.read ? 'text-gray-500' : 'text-gray-700'}`}>
+                    {notif.message}
+                  </p>
+                  <span className="text-xs text-gray-400 mt-2 block">
+                    {new Date(notif.created_at).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                {!notif.read && (
+                  <button 
+                    onClick={() => handleMarkAsRead(notif.id)}
+                    className="p-2 text-blue-600 hover:bg-blue-100 rounded transition"
+                    title="Mark as read"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                )}
+                <button 
+                  onClick={() => handleDelete(notif.id)}
+                  className="p-2 text-red-500 hover:bg-red-50 rounded transition"
+                  title="Delete notification"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          ))
         ) : (
-          <div className="text-center py-12">
-            <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {filterType === 'all' ? 'No notifications' : `No ${filterType} notifications`}
-            </h3>
-            <p className="text-gray-600">
-              {filterType === 'all' ? 'You have no notifications at this time' : `You have no ${filterType} notifications`}
-            </p>
+          <div className="card text-center py-12 text-gray-500">
+            <Bell className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+            <p>You have no notifications.</p>
           </div>
         )}
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="card bg-blue-50 border-blue-200"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Notification Settings</h3>
-        <p className="text-sm text-gray-700 mb-4">
-          Stay informed about your appointments and important updates from the counseling center.
-        </p>
-        <ul className="space-y-2 text-sm text-gray-700">
-          <li className="flex items-start gap-2">
-            <span className="text-primary mt-1">•</span>
-            <span>You'll receive notifications for appointment confirmations and reminders</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary mt-1">•</span>
-            <span>Important announcements will be sent to your notifications</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-primary mt-1">•</span>
-            <span>Check your notifications regularly to stay updated</span>
-          </li>
-        </ul>
-      </motion.div>
+      </div>
     </div>
   )
 }
 
-export default Notifications
+export default UserNotifications

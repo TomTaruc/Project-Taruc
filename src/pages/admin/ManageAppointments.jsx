@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Filter, Calendar, Clock, Check, X, User } from 'lucide-react';
 import { api } from '../../services/api';
+import showToast from '../../components/Toast';
 
 const ManageAppointments = () => {
   const [appointments, setAppointments] = useState([]);
@@ -10,28 +11,41 @@ const ManageAppointments = () => {
   const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
+    let isMounted = true;
+    
+    const fetchAppointments = async () => {
+      setIsLoading(true);
+      try {
+        const data = await api.appointments.getAllAdmin();
+        if (isMounted) setAppointments(data || []);
+      } catch (error) {
+        console.error('Failed to fetch admin appointments:', error);
+        if (isMounted) showToast.error('Failed to load appointments.');
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
     fetchAppointments();
+    
+    return () => { isMounted = false; };
   }, []);
 
-  const fetchAppointments = async () => {
-    setIsLoading(true);
-    try {
-      const data = await api.appointments.getAllAdmin();
-      setAppointments(data || []);
-    } catch (error) {
-      console.error('Failed to fetch admin appointments:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleUpdateStatus = async (id, newStatus) => {
+    // Optimistic UI Update: Instantly update the UI for a snappy experience
+    const previousAppointments = [...appointments];
+    setAppointments(appointments.map(apt => 
+      apt.id === id ? { ...apt, status: newStatus } : apt
+    ));
+
     try {
       await api.appointments.updateStatus(id, newStatus);
-      fetchAppointments(); // Refresh data to reflect server state
+      showToast.success(`Appointment marked as ${newStatus}`);
     } catch (error) {
       console.error('Failed to update status:', error);
-      alert('Failed to update status. Please try again.');
+      // Revert if API fails
+      setAppointments(previousAppointments); 
+      showToast.error('Failed to update status. Please try again.');
     }
   };
 
@@ -112,23 +126,42 @@ const ManageAppointments = () => {
               {filteredAppointments.length > 0 ? (
                 filteredAppointments.map((apt) => (
                   <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="p-4 font-medium text-gray-900">{apt.user_name}</td>
-                    <td className="p-4 text-sm text-gray-600">{new Date(apt.date).toLocaleDateString()} {apt.time}</td>
-                    <td className="p-4 text-sm text-gray-700">{apt.type}</td>
+                    <td className="p-4 font-medium text-gray-900">{apt.user_name || 'N/A'}</td>
+                    <td className="p-4 text-sm text-gray-600">
+                      {apt.date ? new Date(apt.date).toLocaleDateString() : 'N/A'} {apt.time || ''}
+                    </td>
+                    <td className="p-4 text-sm text-gray-700">{apt.type || 'N/A'}</td>
                     <td className="p-4">
                       <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${getStatusBadge(apt.status)}`}>
-                        {apt.status?.toUpperCase()}
+                        {apt.status?.toUpperCase() || 'UNKNOWN'}
                       </span>
                     </td>
                     <td className="p-4">
                       {apt.status === 'pending' && (
                         <div className="flex gap-2">
-                          <button onClick={() => handleUpdateStatus(apt.id, 'confirmed')} className="p-1.5 bg-green-50 text-green-600 rounded"><Check className="w-4 h-4" /></button>
-                          <button onClick={() => handleUpdateStatus(apt.id, 'cancelled')} className="p-1.5 bg-red-50 text-red-600 rounded"><X className="w-4 h-4" /></button>
+                          <button 
+                            title="Confirm"
+                            onClick={() => handleUpdateStatus(apt.id, 'confirmed')} 
+                            className="p-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded transition"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button 
+                            title="Cancel"
+                            onClick={() => handleUpdateStatus(apt.id, 'cancelled')} 
+                            className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded transition"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
                       )}
                       {apt.status === 'confirmed' && (
-                        <button onClick={() => handleUpdateStatus(apt.id, 'completed')} className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded">Mark Completed</button>
+                        <button 
+                          onClick={() => handleUpdateStatus(apt.id, 'completed')} 
+                          className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition"
+                        >
+                          Mark Completed
+                        </button>
                       )}
                     </td>
                   </tr>

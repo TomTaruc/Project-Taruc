@@ -1,227 +1,108 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Clock, User, Calendar, AlertCircle, CheckCircle, Filter } from 'lucide-react'
+import { Calendar, User, Clock, CheckCircle } from 'lucide-react'
 import { api } from '../../services/api'
 import showToast from '../../components/Toast'
 
 const FollowUpReminders = () => {
-  const [reminders, setReminders] = useState([])
+  const [followUps, setFollowUps] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filterPriority, setFilterPriority] = useState('all')
 
   useEffect(() => {
-    const fetchReminders = async () => {
+    let isMounted = true
+
+    const fetchFollowUps = async () => {
       try {
         const data = await api.clientRecords.getFollowUps()
-        setReminders(data || [])
-      } catch (err) {
-        console.error('Error fetching follow-up reminders:', err)
-        setReminders([])
+        if (isMounted) setFollowUps(data || [])
+      } catch (error) {
+        console.error("Error fetching follow-ups:", error)
+        if (isMounted) showToast.error("Failed to load follow-up reminders.")
       } finally {
-        setLoading(false)
+        if (isMounted) setLoading(false)
       }
     }
-    fetchReminders()
+
+    fetchFollowUps()
+    return () => { isMounted = false }
   }, [])
 
-  const filteredReminders = filterPriority === 'all'
-    ? reminders
-    : reminders.filter(r => r.priority === filterPriority)
-
-  const getPriorityBadge = (priority) => {
-    const badges = { high: 'badge-error', medium: 'badge-warning', low: 'badge-info' }
-    return badges[priority] || 'badge'
-  }
-
-  const getPriorityIcon = (priority) => priority === 'high' ? AlertCircle : Clock
-
-  const handleMarkComplete = async (id) => {
+  const handleComplete = async (id) => {
+    const previous = [...followUps]
+    
+    // Optimistic Update
+    setFollowUps(followUps.filter(f => f.id !== id))
+    
     try {
       await api.clientRecords.update(id, { follow_up_required: false })
-      setReminders(prev => prev.filter(r => r.id !== id))
-      showToast.success('Follow-up reminder marked as complete')
-    } catch (err) {
-      console.error('Error marking follow-up complete:', err)
-      showToast.error('Failed to update reminder')
+      showToast.success("Follow-up marked as complete.")
+    } catch (error) {
+      setFollowUps(previous)
+      showToast.error("Failed to update record.")
     }
-  }
-
-  const isOverdue = (followUpDate) => {
-    if (!followUpDate) return false
-    return new Date(followUpDate) < new Date()
   }
 
   if (loading) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
-        <div className="space-y-4">
-          {[...Array(3)].map((_, i) => <div key={i} className="h-36 bg-gray-200 rounded-lg"></div>)}
-        </div>
-      </div>
-    )
+    return <div className="p-8 text-center text-gray-500 animate-pulse">Loading reminders...</div>
   }
 
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Follow-up Reminders</h1>
-        <p className="text-gray-600">Track and manage client follow-up appointments</p>
+        <p className="text-gray-600">Track clients who require follow-up counseling sessions.</p>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="card"
-      >
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex items-center gap-2 text-gray-700">
-            <Filter className="w-5 h-5" />
-            <span className="font-medium">Filter by priority:</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {['all', 'high', 'medium', 'low'].map((priority) => (
-              <button
-                key={priority}
-                onClick={() => setFilterPriority(priority)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                  filterPriority === priority
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {priority === 'all' ? 'All Priorities' : `${priority.charAt(0).toUpperCase() + priority.slice(1)} Priority`}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {filteredReminders.length > 0 ? (
-          <div className="space-y-4">
-            {filteredReminders.map((reminder, index) => {
-              const PriorityIcon = getPriorityIcon(reminder.priority)
-              const overdueStatus = isOverdue(reminder.follow_up_date)
-              return (
-                <motion.div
-                  key={reminder.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`p-6 rounded-lg border-l-4 transition-all duration-200 ${
-                    overdueStatus
-                      ? 'bg-red-50 border-red-500'
-                      : reminder.priority === 'high'
-                      ? 'bg-orange-50 border-orange-500'
-                      : 'bg-gray-50 border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${overdueStatus ? 'bg-red-100' : 'bg-white'}`}>
-                          <PriorityIcon className={`w-5 h-5 ${overdueStatus ? 'text-red-600' : 'text-primary'}`} />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="text-lg font-semibold text-gray-900">{reminder.client_name}</h3>
-                            {reminder.priority && (
-                              <span className={`badge ${getPriorityBadge(reminder.priority)} text-xs`}>
-                                {reminder.priority} priority
-                              </span>
-                            )}
-                            {overdueStatus && <span className="badge badge-error text-xs">OVERDUE</span>}
-                          </div>
-                          {reminder.notes && <p className="text-sm text-gray-600 mb-2">{reminder.notes}</p>}
-                        </div>
-                      </div>
-                      <div className="grid md:grid-cols-2 gap-3 ml-13">
-                        {reminder.counselor && (
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <User className="w-4 h-4" />
-                            <span>Counselor: {reminder.counselor}</span>
-                          </div>
-                        )}
-                        {reminder.session_date && (
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Calendar className="w-4 h-4" />
-                            <span>
-                              Last Session:{' '}
-                              {new Date(reminder.session_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </span>
-                          </div>
-                        )}
-                        {reminder.follow_up_date && (
-                          <div className="flex items-center gap-2 text-sm font-medium">
-                            <Clock className={`w-4 h-4 ${overdueStatus ? 'text-red-600' : 'text-primary'}`} />
-                            <span className={overdueStatus ? 'text-red-600' : 'text-primary'}>
-                              Follow-up Due:{' '}
-                              {new Date(reminder.follow_up_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleMarkComplete(reminder.id)}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      Complete
-                    </button>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {followUps.length > 0 ? (
+          followUps.map((record, index) => (
+            <motion.div 
+              key={record.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.05 }}
+              className="card border-t-4 border-yellow-400 flex flex-col h-full"
+            >
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="font-bold text-lg text-gray-900">{record.client_name}</h3>
+                  <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-medium">Action Needed</span>
+                </div>
+                
+                <div className="space-y-2 mb-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>Follow-up Date: {new Date(record.follow_up_date).toLocaleDateString()}</span>
                   </div>
-                </motion.div>
-              )
-            })}
-          </div>
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    <span>Assigned to: {record.counselor}</span>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-50 p-3 rounded text-sm text-gray-700 mb-4">
+                  <span className="font-medium text-gray-900 block mb-1">Previous Session Notes:</span>
+                  <p className="line-clamp-3">{record.notes}</p>
+                </div>
+              </div>
+              
+              <button 
+                onClick={() => handleComplete(record.id)}
+                className="w-full py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg flex items-center justify-center gap-2 transition"
+              >
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                Mark as Completed
+              </button>
+            </motion.div>
+          ))
         ) : (
-          <div className="text-center py-12">
-            <Clock className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No follow-up reminders</h3>
-            <p className="text-gray-600">
-              {filterPriority !== 'all' ? 'Try selecting a different priority level' : 'All clients are up to date'}
-            </p>
+          <div className="col-span-full py-12 text-center text-gray-500 card">
+            <CheckCircle className="w-12 h-12 mx-auto text-green-400 mb-3" />
+            <h3 className="text-lg font-medium text-gray-900">All caught up!</h3>
+            <p>There are no pending follow-up reminders.</p>
           </div>
         )}
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="grid md:grid-cols-3 gap-6"
-      >
-        <div className="card bg-red-50 border-red-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900">High Priority</h3>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{reminders.filter(r => r.priority === 'high').length}</p>
-          <p className="text-sm text-gray-600 mt-1">Requires immediate attention</p>
-        </div>
-        <div className="card bg-yellow-50 border-yellow-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <Clock className="w-5 h-5 text-yellow-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900">Medium Priority</h3>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{reminders.filter(r => r.priority === 'medium').length}</p>
-          <p className="text-sm text-gray-600 mt-1">Schedule within this week</p>
-        </div>
-        <div className="card bg-blue-50 border-blue-200">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-blue-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900">Low Priority</h3>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{reminders.filter(r => r.priority === 'low').length}</p>
-          <p className="text-sm text-gray-600 mt-1">Scheduled follow-ups</p>
-        </div>
-      </motion.div>
+      </div>
     </div>
   )
 }
