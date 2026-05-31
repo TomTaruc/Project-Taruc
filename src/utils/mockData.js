@@ -1,4 +1,4 @@
-// Configuration constants — these are static values, not database data.
+// Configuration constants. These are static values, not database data.
 
 export const timeSlots = [
   '09:00 AM',
@@ -24,10 +24,4 @@ export const dailyTips = [
   'Huwag mag-atubiling makipag-usap sa isang kaibigan o counselor.',
   'Ang pag-aalaga sa mental health ay hindi kahinaan, ito ay kalakasan.',
   'Magtiwala sa proseso. Ang pagbabago ay nangangailangan ng panahon.',
-]
-
-export const barangayData = [
-  { name: 'Brgy. Sta. Ana', studentCount: 450, coordinates: { lat: 14.5673, lng: 121.1327 } },
-  { name: 'Brgy. Dolores', studentCount: 380, coordinates: { lat: 14.5712, lng: 121.1289 } },
-  { name: 'Brgy. San Isidro', studentCount: 320, coordinates: { lat: 14.5645, lng: 121.1356 } },
 ]
