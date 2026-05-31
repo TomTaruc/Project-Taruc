@@ -1,289 +1,319 @@
-import { supabase } from './supabase';
+import { supabase } from './supabase'
+
+const USERS_TABLE = 'users'
+
+const cleanEmail = (email) => email?.trim().toLowerCase()
+
+const requireSingle = ({ data, error }, fallbackMessage) => {
+  if (error) throw new Error(error.message || fallbackMessage)
+  if (!data) throw new Error(fallbackMessage)
+  return data
+}
+
+const requireList = ({ data, error }, fallbackMessage) => {
+  if (error) throw new Error(error.message || fallbackMessage)
+  return data || []
+}
+
+const getCurrentAuthUser = async () => {
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data?.user) {
+    throw new Error(error?.message || 'Not authenticated')
+  }
+  return data.user
+}
+
+const getProfileByEmail = async (email) => {
+  const response = await supabase
+    .from(USERS_TABLE)
+    .select('*')
+    .eq('email', cleanEmail(email))
+    .maybeSingle()
+
+  if (response.error) throw new Error(response.error.message || 'Failed to load user profile')
+  return response.data
+}
 
 export const api = {
   auth: {
     login: async ({ email, password }) => {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-      if (authError) throw authError;
+      const normalizedEmail = cleanEmail(email)
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      })
 
-      const { data: profile } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single();
+      if (authError) throw new Error(authError.message || 'Invalid login credentials')
 
-      const userProfile = profile || {
-        id: authData.user.id,
-        email: authData.user.email,
-        name: authData.user.user_metadata?.name || 'User',
-        role: 'user',
-      };
+      const profile = await getProfileByEmail(normalizedEmail)
+      if (!profile) {
+        await supabase.auth.signOut()
+        throw new Error('Account profile was not found. Please contact an administrator.')
+      }
 
-      return { user: userProfile, session: authData.session };
+      return { user: profile, session: authData.session }
     },
 
     register: async (userData) => {
+      const normalizedEmail = cleanEmail(userData.email)
+      const role = userData.role === 'admin' ? 'user' : userData.role || 'user'
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userData.email,
+        email: normalizedEmail,
         password: userData.password,
-        options: { data: { name: userData.name } },
-      });
-      if (authError) throw authError;
+        options: {
+          data: {
+            name: userData.name.trim(),
+            phone: userData.phone?.trim() || null,
+            role,
+          },
+        },
+      })
 
-      const { data: profile } = await supabase
-        .from('users')
-        .insert([{
-          name: userData.name,
-          email: userData.email,
-          password: 'supabase_managed',
-          phone: userData.phone || null,
-          role: userData.role || 'user',
-        }])
-        .select()
-        .single();
+      if (authError) throw new Error(authError.message || 'Registration failed')
+      if (!authData.user) throw new Error('Registration failed. Please try again.')
 
-      const userProfile = profile || {
+      const existingProfile = await getProfileByEmail(normalizedEmail)
+      if (existingProfile) {
+        return { user: existingProfile, session: authData.session }
+      }
+
+      const profilePayload = {
         id: authData.user.id,
-        email: authData.user.email,
-        name: userData.name,
-        role: userData.role || 'user',
-      };
+        name: userData.name.trim(),
+        email: normalizedEmail,
+        phone: userData.phone?.trim() || null,
+        role,
+      }
 
-      return { user: userProfile, session: authData.session };
+      const profile = requireSingle(
+        await supabase.from(USERS_TABLE).insert(profilePayload).select('*').single(),
+        'Account was created, but the profile could not be saved.'
+      )
+
+      return { user: profile, session: authData.session }
     },
 
     getProfile: async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) throw new Error('Not authenticated');
+      const authUser = await getCurrentAuthUser()
+      const profile = await getProfileByEmail(authUser.email)
 
-      const { data: profile } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', user.email)
-        .single();
+      if (!profile) {
+        throw new Error('Account profile was not found. Please contact an administrator.')
+      }
 
-      return profile || { id: user.id, email: user.email, name: user.user_metadata?.name || 'User', role: 'user' };
+      return profile
     },
 
     logout: async () => {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      const { error } = await supabase.auth.signOut()
+      if (error) throw new Error(error.message || 'Logout failed')
     },
   },
 
   appointments: {
     getUserAppointments: async () => {
-      const profile = await api.auth.getProfile();
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('user_email', profile.email)
-        .order('date', { ascending: false });
-      if (error) throw error;
-      return data;
+      const profile = await api.auth.getProfile()
+      return requireList(
+        await supabase
+          .from('appointments')
+          .select('*')
+          .eq('user_id', profile.id)
+          .order('date', { ascending: false })
+          .order('time', { ascending: true }),
+        'Failed to load appointments'
+      )
     },
 
     create: async (appointmentData) => {
-      const { data, error } = await supabase
-        .from('appointments')
-        .insert([appointmentData])
-        .select();
-      if (error) throw error;
-      return data[0];
+      return requireSingle(
+        await supabase.from('appointments').insert(appointmentData).select('*').single(),
+        'Failed to create appointment'
+      )
     },
 
     getAllAdmin: async () => {
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('*')
-        .order('date', { ascending: false });
-      if (error) throw error;
-      return data;
+      return requireList(
+        await supabase
+          .from('appointments')
+          .select('*')
+          .order('date', { ascending: false })
+          .order('time', { ascending: true }),
+        'Failed to load appointments'
+      )
     },
 
     updateStatus: async (id, status) => {
-      const { data, error } = await supabase
-        .from('appointments')
-        .update({ status })
-        .eq('id', id)
-        .select();
-      if (error) throw error;
-      return data[0];
+      return requireSingle(
+        await supabase.from('appointments').update({ status }).eq('id', id).select('*').single(),
+        'Failed to update appointment'
+      )
     },
   },
 
   clientRecords: {
     getUserRecords: async () => {
-      const profile = await api.auth.getProfile();
-      const { data, error } = await supabase
-        .from('client_records')
-        .select('*')
-        .eq('client_name', profile.name)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      const profile = await api.auth.getProfile()
+      return requireList(
+        await supabase
+          .from('client_records')
+          .select('*')
+          .or(`user_id.eq.${profile.id},client_email.eq.${profile.email}`)
+          .order('created_at', { ascending: false }),
+        'Failed to load client records'
+      )
     },
 
     getAllAdmin: async () => {
-      const { data, error } = await supabase
-        .from('client_records')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      return requireList(
+        await supabase.from('client_records').select('*').order('created_at', { ascending: false }),
+        'Failed to load client records'
+      )
     },
 
     create: async (recordData) => {
-      const { data, error } = await supabase
-        .from('client_records')
-        .insert([recordData])
-        .select();
-      if (error) throw error;
-      return data[0];
+      return requireSingle(
+        await supabase.from('client_records').insert(recordData).select('*').single(),
+        'Failed to create client record'
+      )
     },
 
     update: async (id, updates) => {
-      const { data, error } = await supabase
-        .from('client_records')
-        .update(updates)
-        .eq('id', id)
-        .select();
-      if (error) throw error;
-      return data[0];
+      return requireSingle(
+        await supabase.from('client_records').update(updates).eq('id', id).select('*').single(),
+        'Failed to update client record'
+      )
     },
 
     getFollowUps: async () => {
-      const { data, error } = await supabase
-        .from('client_records')
-        .select('*')
-        .eq('follow_up_required', true)
-        .order('follow_up_date', { ascending: true });
-      if (error) throw error;
-      return data;
+      return requireList(
+        await supabase
+          .from('client_records')
+          .select('*')
+          .eq('follow_up_required', true)
+          .order('follow_up_date', { ascending: true }),
+        'Failed to load follow-ups'
+      )
     },
   },
 
   announcements: {
     getAll: async () => {
-      const { data, error } = await supabase
-        .from('announcements')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      return requireList(
+        await supabase
+          .from('announcements')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false }),
+        'Failed to load announcements'
+      )
     },
 
     create: async (announcementData) => {
-      const { data, error } = await supabase
-        .from('announcements')
-        .insert([announcementData])
-        .select();
-      if (error) throw error;
-      return data[0];
+      return requireSingle(
+        await supabase.from('announcements').insert(announcementData).select('*').single(),
+        'Failed to create announcement'
+      )
     },
 
     update: async (id, updates) => {
-      const { data, error } = await supabase
-        .from('announcements')
-        .update(updates)
-        .eq('id', id)
-        .select();
-      if (error) throw error;
-      return data[0];
+      return requireSingle(
+        await supabase.from('announcements').update(updates).eq('id', id).select('*').single(),
+        'Failed to update announcement'
+      )
     },
 
     delete: async (id) => {
-      const { error } = await supabase
-        .from('announcements')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
+      const { error } = await supabase.from('announcements').delete().eq('id', id)
+      if (error) throw new Error(error.message || 'Failed to delete announcement')
     },
   },
 
   inquiries: {
     create: async (inquiryData) => {
-      const { data, error } = await supabase
-        .from('inquiries')
-        .insert([inquiryData])
-        .select();
-      if (error) throw error;
-      return data[0];
+      return requireSingle(
+        await supabase.from('inquiries').insert(inquiryData).select('*').single(),
+        'Failed to send inquiry'
+      )
     },
 
     getUserInquiries: async () => {
-      const profile = await api.auth.getProfile();
-      const { data, error } = await supabase
-        .from('inquiries')
-        .select('*')
-        .eq('email', profile.email)
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      return data;
+      const profile = await api.auth.getProfile()
+      return requireList(
+        await supabase
+          .from('inquiries')
+          .select('*')
+          .eq('email', profile.email)
+          .order('created_at', { ascending: true }),
+        'Failed to load inquiries'
+      )
     },
 
     getAllAdmin: async () => {
-      const { data, error } = await supabase
-        .from('inquiries')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      return requireList(
+        await supabase.from('inquiries').select('*').order('created_at', { ascending: false }),
+        'Failed to load inquiries'
+      )
     },
 
     updateStatus: async (id, status, response = null) => {
-      const { data, error } = await supabase
-        .from('inquiries')
-        .update({
-          status,
-          response,
-          responded_at: response ? new Date().toISOString() : null,
-        })
-        .eq('id', id)
-        .select();
-      if (error) throw error;
-      return data[0];
+      return requireSingle(
+        await supabase
+          .from('inquiries')
+          .update({
+            status,
+            response,
+            responded_at: response ? new Date().toISOString() : null,
+          })
+          .eq('id', id)
+          .select('*')
+          .single(),
+        'Failed to update inquiry'
+      )
     },
   },
 
   notifications: {
     getUserNotifications: async () => {
-      const profile = await api.auth.getProfile();
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data.filter(n => n.user_id === profile.id || !n.user_id);
+      const profile = await api.auth.getProfile()
+      return requireList(
+        await supabase
+          .from('notifications')
+          .select('*')
+          .or(`user_id.eq.${profile.id},user_id.is.null`)
+          .order('created_at', { ascending: false }),
+        'Failed to load notifications'
+      )
     },
 
     markAsRead: async (id) => {
-      const { data, error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', id)
-        .select();
-      if (error) throw error;
-      return data[0];
+      return requireSingle(
+        await supabase.from('notifications').update({ read: true }).eq('id', id).select('*').single(),
+        'Failed to update notification'
+      )
     },
 
     delete: async (id) => {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
+      const { error } = await supabase.from('notifications').delete().eq('id', id)
+      if (error) throw new Error(error.message || 'Failed to delete notification')
     },
   },
 
   counselors: {
     getAll: async () => {
-      const { data, error } = await supabase
-        .from('counselor_roster')
-        .select('*');
-      if (error) throw error;
-      return data;
+      return requireList(
+        await supabase.from('counselor_roster').select('*').order('name', { ascending: true }),
+        'Failed to load counselors'
+      )
     },
   },
-};
+
+  barangays: {
+    getAll: async () => {
+      return requireList(
+        await supabase.from('barangays').select('*').order('name', { ascending: true }),
+        'Failed to load barangay data'
+      )
+    },
+  },
+}
