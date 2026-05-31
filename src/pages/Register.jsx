@@ -12,7 +12,6 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   
-  // Added default 'user' role state
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -50,7 +49,7 @@ const Register = () => {
         email: formData.email.trim(),
         phone: formData.phone.trim(),
         password: formData.password,
-        role: formData.role, // Push dynamic role
+        role: formData.role, 
       }
       
       const result = await register(registrationData)
@@ -64,7 +63,6 @@ const Register = () => {
 
         showToast.success('Account created successfully!')
         
-        // Auto-redirect to proper dashboard
         if (registrationData.role === 'admin') {
            navigate('/admin/dashboard', { replace: true })
         } else {
@@ -145,7 +143,6 @@ const Register = () => {
               {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
             </div>
 
-            {/* NEW ROLE SELECTOR FIELD */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Shield className="w-4 h-4 inline mr-1" />
