@@ -35,15 +35,18 @@ const Login = () => {
     }
 
     setIsSubmitting(true)
-    const result = login(formData.email, formData.password)
-    
-    if (result.success) {
-      showToast.success('Login successful!')
-      navigate(result.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard')
-    } else {
-      showToast.error(result.message)
+    try {
+      const result = await login(formData.email.trim(), formData.password)
+
+      if (result.success) {
+        showToast.success('Login successful!')
+        navigate(result.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard', { replace: true })
+      } else {
+        showToast.error(result.message)
+      }
+    } finally {
+      setIsSubmitting(false)
     }
-    setIsSubmitting(false)
   }
 
   return (
@@ -74,6 +77,8 @@ const Login = () => {
                 value={formData.email}
                 onChange={handleChange}
                 className={`input-field ${errors.email ? 'input-error' : ''}`}
+                placeholder="you@example.com"
+                autoComplete="email"
               />
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
             </div>
@@ -90,7 +95,8 @@ const Login = () => {
                   value={formData.password}
                   onChange={handleChange}
                   className={`input-field pr-12 ${errors.password ? 'input-error' : ''}`}
-                  placeholder="••••••••"
+                  placeholder="Password"
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
@@ -112,30 +118,8 @@ const Login = () => {
             </button>
           </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Demo Credentials</span>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-2 text-sm">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="font-medium text-gray-700">Admin Account:</p>
-                <p className="text-gray-600">admin@therapath.com / admin123</p>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="font-medium text-gray-700">User Account:</p>
-                <p className="text-gray-600">juan@example.com / user123</p>
-              </div>
-            </div>
-          </div>
-
           <p className="mt-6 text-center text-sm text-gray-600">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link to="/register" className="text-primary font-medium hover:text-primary-dark">
               Sign up
             </Link>
