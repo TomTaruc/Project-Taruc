@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuth } from './context/AuthContext'
@@ -25,14 +26,16 @@ import CounselorRoster from './pages/admin/CounselorRoster'
 import InquiryManager from './pages/admin/InquiryManager'
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, loading } = useAuth()
+  if (loading) return null
   if (!isAuthenticated) return <Navigate to="/login" replace />
   if (adminOnly && user?.role !== 'admin') return <Navigate to="/user/dashboard" replace />
   return children
 }
 
 const PublicRoute = ({ children }) => {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user, loading } = useAuth()
+  if (loading) return null
   if (isAuthenticated) return <Navigate to={user?.role === 'admin' ? '/admin/dashboard' : '/user/dashboard'} replace />
   return children
 }
@@ -61,7 +64,15 @@ const ScrollToTop = () => {
 }
 
 const App = () => {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+      </div>
+    )
+  }
 
   return (
     <>
