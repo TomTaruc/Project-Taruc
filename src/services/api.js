@@ -62,8 +62,8 @@ export const api = {
 
     register: async (userData) => {
       const normalizedEmail = cleanEmail(userData.email)
-      // Enforce role security 
-      const role = userData.role === 'admin' ? 'user' : userData.role || 'user'
+      // FIX: Removed strict override that forced all registrations to 'user'
+      const role = userData.role || 'user'
       const name = cleanText(userData.name)
       const phone = cleanText(userData.phone) || null
 
@@ -100,12 +100,18 @@ export const api = {
       }
     },
 
-    getProfile: async () => {
-      const { data, error } = await supabase.auth.getUser()
-      if (error || !data?.user) {
-        throw new Error(error?.message || 'Not authenticated')
+    // FIX: Accept authUser to prevent redundant, blocking supabase.auth.getUser() network calls
+    getProfile: async (authUser = null) => {
+      let user = authUser;
+      
+      if (!user) {
+        const { data, error } = await supabase.auth.getUser()
+        if (error || !data?.user) {
+          throw new Error(error?.message || 'Not authenticated')
+        }
+        user = data.user;
       }
-      return getProfileSafely(data.user)
+      return getProfileSafely(user)
     },
 
     logout: async () => {

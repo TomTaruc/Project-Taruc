@@ -19,31 +19,45 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    let mounted = true;
+    let isSubscribed = true;
+    
+    // Failsafe timeout to prevent infinite loading screens
+    const timeoutId = setTimeout(() => {
+      if (isSubscribed && loading) {
+        setLoading(false);
+        console.warn("Auth initialization timed out, forcing load completion.");
+      }
+    }, 8000);
 
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) throw error;
+
         if (session?.user) {
-          const profile = await api.auth.getProfile()
-          if (mounted) {
+          // Pass session.user directly to prevent redundant and blocking network fetches
+          const profile = await api.auth.getProfile(session.user)
+          if (isSubscribed) {
             setUser(profile)
             setIsAuthenticated(true)
           }
         } else {
-          if (mounted) {
+          if (isSubscribed) {
             setUser(null)
             setIsAuthenticated(false)
           }
         }
       } catch (error) {
         console.error("Auth init error:", error)
-        if (mounted) {
+        if (isSubscribed) {
           setUser(null)
           setIsAuthenticated(false)
         }
       } finally {
-        if (mounted) setLoading(false)
+        if (isSubscribed) {
+          setLoading(false)
+        }
       }
     }
 
@@ -56,28 +70,32 @@ export const AuthProvider = ({ children }) => {
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
         if (session?.user) {
           try {
-            const profile = await api.auth.getProfile()
-            if (mounted) {
+            const profile = await api.auth.getProfile(session.user)
+            if (isSubscribed) {
               setUser(profile)
               setIsAuthenticated(true)
+              setLoading(false)
             }
           } catch (error) {
             console.error("Auth state change error:", error)
+            if (isSubscribed) setLoading(false)
           }
         }
       } else if (event === 'SIGNED_OUT') {
-        if (mounted) {
+        if (isSubscribed) {
           setUser(null)
           setIsAuthenticated(false)
+          setLoading(false)
         }
       }
     })
 
     return () => {
-      mounted = false;
+      isSubscribed = false;
+      clearTimeout(timeoutId);
       authListener?.subscription?.unsubscribe()
     }
-  }, [])
+  }, [loading])
 
   const login = async (emailOrObj, passwordArg) => {
     try {

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { User, Mail, Lock, Phone, Eye, EyeOff, Heart } from 'lucide-react'
+import { User, Mail, Lock, Phone, Eye, EyeOff, Heart, Shield } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { validateRegisterForm } from '../utils/validation'
 import showToast from '../components/Toast'
@@ -11,13 +11,17 @@ const Register = () => {
   const { register } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  
+  // Added default 'user' role state
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
     phone: '',
+    role: 'user', 
   })
+  
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -46,7 +50,7 @@ const Register = () => {
         email: formData.email.trim(),
         phone: formData.phone.trim(),
         password: formData.password,
-        role: 'user',
+        role: formData.role, // Push dynamic role
       }
       
       const result = await register(registrationData)
@@ -59,7 +63,14 @@ const Register = () => {
         }
 
         showToast.success('Account created successfully!')
-        navigate('/user/dashboard', { replace: true })
+        
+        // Auto-redirect to proper dashboard
+        if (registrationData.role === 'admin') {
+           navigate('/admin/dashboard', { replace: true })
+        } else {
+           navigate('/user/dashboard', { replace: true })
+        }
+        
       } else {
         showToast.error(result.message)
       }
@@ -132,6 +143,23 @@ const Register = () => {
                 autoComplete="tel"
               />
               {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+            </div>
+
+            {/* NEW ROLE SELECTOR FIELD */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Shield className="w-4 h-4 inline mr-1" />
+                Account Role
+              </label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                className={`input-field ${errors.role ? 'input-error' : ''} bg-white`}
+              >
+                <option value="user">User / Client</option>
+                <option value="admin">Administrator</option>
+              </select>
             </div>
 
             <div>
