@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { createContext, useContext, useState, useEffect } from 'react'
 import { api } from '../services/api'
 import { supabase } from '../services/supabase'
@@ -21,10 +22,13 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
+        if (session?.user) {
           const profile = await api.auth.getProfile()
           setUser(profile)
           setIsAuthenticated(true)
+        } else {
+          setUser(null)
+          setIsAuthenticated(false)
         }
       } catch (error) {
         console.error("No active session:", error)
@@ -36,13 +40,15 @@ export const AuthProvider = ({ children }) => {
     initializeAuth()
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
+      if (session?.user) {
         try {
           const profile = await api.auth.getProfile()
           setUser(profile)
           setIsAuthenticated(true)
         } catch (error) {
           console.error("Error fetching profile on state shift:", error)
+          setUser(null)
+          setIsAuthenticated(false)
         }
       } else {
         setUser(null)
@@ -59,8 +65,8 @@ export const AuthProvider = ({ children }) => {
   // Robust parameter handling to prevent "undefined email" errors
   const login = async (emailOrObj, passwordArg) => {
     try {
-      const email = typeof emailOrObj === 'object' ? emailOrObj.email : emailOrObj;
-      const password = typeof emailOrObj === 'object' ? emailOrObj.password : passwordArg;
+      const email = (typeof emailOrObj === 'object' ? emailOrObj.email : emailOrObj)?.trim()
+      const password = typeof emailOrObj === 'object' ? emailOrObj.password : passwordArg
 
       const response = await api.auth.login({ email, password })
       setUser(response.user)
