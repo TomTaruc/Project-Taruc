@@ -1,12 +1,53 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { MapPin, Users, TrendingUp, BarChart3 } from 'lucide-react'
-import { barangayData } from '../../utils/mockData'
+import { api } from '../../services/api'
 
 const BarangayMap = () => {
   const [selectedBarangay, setSelectedBarangay] = useState(null)
+  const [barangayData, setBarangayData] = useState([])
+  const [loading, setLoading] = useState(true)
 
   const totalStudents = barangayData.reduce((sum, b) => sum + b.studentCount, 0)
+  const averageStudents = barangayData.length ? Math.round(totalStudents / barangayData.length) : 0
+  const highestStudentCount = barangayData.length ? Math.max(...barangayData.map(b => b.studentCount)) : 0
+  const highestBarangay = barangayData.find(b => b.studentCount === highestStudentCount)
+
+  useEffect(() => {
+    const fetchBarangays = async () => {
+      try {
+        const data = await api.barangays.getAll()
+        setBarangayData((data || []).map(item => ({
+          id: item.id,
+          name: item.name,
+          studentCount: Number(item.student_count || item.studentCount || 0),
+          coordinates: {
+            lat: Number(item.latitude || item.coordinates?.lat || 0),
+            lng: Number(item.longitude || item.coordinates?.lng || 0),
+          },
+          commonConcerns: item.common_concerns || item.commonConcerns || [],
+        })))
+      } catch (error) {
+        console.error('Failed to load barangay data:', error)
+        setBarangayData([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBarangays()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
+          <div className="h-80 bg-gray-200 rounded-lg"></div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -71,7 +112,7 @@ const BarangayMap = () => {
               <h3 className="font-semibold text-gray-900">Average Students</h3>
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              {Math.round(totalStudents / barangayData.length)}
+              {averageStudents}
             </p>
             <p className="text-sm text-gray-600 mt-1">Per barangay</p>
           </div>
@@ -84,9 +125,9 @@ const BarangayMap = () => {
               <h3 className="font-semibold text-gray-900">Highest</h3>
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              {Math.max(...barangayData.map(b => b.studentCount))}
+              {highestStudentCount}
             </p>
-            <p className="text-sm text-gray-600 mt-1">{barangayData.find(b => b.studentCount === Math.max(...barangayData.map(b => b.studentCount)))?.name}</p>
+            <p className="text-sm text-gray-600 mt-1">{highestBarangay?.name || 'No data yet'}</p>
           </div>
         </div>
       </motion.div>
@@ -98,9 +139,9 @@ const BarangayMap = () => {
       >
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Barangay Details</h2>
         <div className="grid md:grid-cols-2 gap-6">
-          {barangayData.map((barangay, index) => (
+          {barangayData.length > 0 ? barangayData.map((barangay, index) => (
             <motion.div
-              key={barangay.id}
+              key={barangay.id || barangay.name}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 + index * 0.05 }}
@@ -130,6 +171,9 @@ const BarangayMap = () => {
                           {concern}
                         </span>
                       ))}
+                      {barangay.commonConcerns.length === 0 && (
+                        <span className="text-sm text-gray-500">No concern data recorded yet.</span>
+                      )}
                     </div>
                   </div>
 
@@ -144,14 +188,20 @@ const BarangayMap = () => {
                       </p>
                       <p className="text-sm text-gray-600">
                         <span className="font-medium">Percentage of Total:</span>{' '}
-                        {((barangay.studentCount / totalStudents) * 100).toFixed(1)}%
+                        {totalStudents ? ((barangay.studentCount / totalStudents) * 100).toFixed(1) : '0.0'}%
                       </p>
                     </motion.div>
                   )}
                 </div>
               </div>
             </motion.div>
-          ))}
+          )) : (
+            <div className="md:col-span-2 text-center py-12 bg-white rounded-lg border border-gray-100">
+              <MapPin className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No barangay data found</h3>
+              <p className="text-gray-600">Add barangay records in PostgreSQL to populate this map.</p>
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -164,19 +214,19 @@ const BarangayMap = () => {
         <h3 className="text-lg font-semibold text-gray-900 mb-3">Geographic Insights</h3>
         <ul className="space-y-2 text-sm text-gray-700">
           <li className="flex items-start gap-2">
-            <span className="text-primary mt-1">•</span>
+            <span className="text-primary mt-1">-</span>
             <span>Focus counseling resources on barangays with higher student populations</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-primary mt-1">•</span>
+            <span className="text-primary mt-1">-</span>
             <span>Tailor counseling programs based on common concerns per barangay</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-primary mt-1">•</span>
+            <span className="text-primary mt-1">-</span>
             <span>Consider outreach programs for underserved areas</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-primary mt-1">•</span>
+            <span className="text-primary mt-1">-</span>
             <span>Partner with barangay health centers for better community reach</span>
           </li>
         </ul>
