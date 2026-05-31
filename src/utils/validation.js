@@ -1,15 +1,15 @@
 export const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
+  return emailRegex.test(email?.trim())
 }
 
 export const validatePhone = (phone) => {
-  const phoneRegex = /^[\d\s\-\(\)]+$/
+  const phoneRegex = /^[\d\s()-]+$/
   return phoneRegex.test(phone) && phone.replace(/\D/g, '').length >= 10
 }
 
 export const validatePassword = (password) => {
-  return password.length >= 6
+  return (password || '').length >= 6
 }
 
 export const validateRequired = (value) => {
