@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 const USERS_TABLE = 'users'
 
 const cleanEmail = (email) => email?.trim().toLowerCase()
+const cleanText = (value) => value?.toString().trim()
 
 const requireSingle = ({ data, error }, fallbackMessage) => {
   if (error) throw new Error(error.message || fallbackMessage)
@@ -34,6 +35,61 @@ const getProfileByEmail = async (email) => {
   return response.data
 }
 
+const isDuplicateEmailError = (error) => {
+  const message = error?.message?.toLowerCase() || ''
+  return error?.code === '23505' || message.includes('duplicate') || message.includes('already')
+}
+
+const buildProfilePayloads = (authUser, userData = {}) => {
+  const baseProfile = {
+    name: cleanText(userData.name) || authUser.user_metadata?.name || 'User',
+    email: cleanEmail(userData.email || authUser.email),
+    phone: cleanText(userData.phone) || authUser.user_metadata?.phone || null,
+    role: userData.role === 'admin' ? 'user' : userData.role || authUser.user_metadata?.role || 'user',
+  }
+
+  const legacyPasswordProfile = {
+    ...baseProfile,
+    password: 'supabase_managed',
+  }
+
+  return [
+    { id: authUser.id, ...baseProfile },
+    { id: authUser.id, ...legacyPasswordProfile },
+    { auth_user_id: authUser.id, ...baseProfile },
+    { auth_user_id: authUser.id, ...legacyPasswordProfile },
+    baseProfile,
+    legacyPasswordProfile,
+  ]
+}
+
+const createProfileForAuthUser = async (authUser, userData = {}) => {
+  const existingProfile = await getProfileByEmail(userData.email || authUser.email)
+  if (existingProfile) return existingProfile
+
+  const payloads = buildProfilePayloads(authUser, userData)
+  let lastError = null
+
+  for (const payload of payloads) {
+    const response = await supabase
+      .from(USERS_TABLE)
+      .insert(payload)
+      .select('*')
+      .single()
+
+    if (!response.error && response.data) return response.data
+
+    if (isDuplicateEmailError(response.error)) {
+      const profile = await getProfileByEmail(userData.email || authUser.email)
+      if (profile) return profile
+    }
+
+    lastError = response.error
+  }
+
+  throw new Error(lastError?.message || 'Account was created, but the profile could not be saved.')
+}
+
 export const api = {
   auth: {
     login: async ({ email, password }) => {
@@ -45,11 +101,12 @@ export const api = {
 
       if (authError) throw new Error(authError.message || 'Invalid login credentials')
 
-      const profile = await getProfileByEmail(normalizedEmail)
-      if (!profile) {
-        await supabase.auth.signOut()
-        throw new Error('Account profile was not found. Please contact an administrator.')
-      }
+      const profile = await createProfileForAuthUser(authData.user, {
+        email: normalizedEmail,
+        name: authData.user.user_metadata?.name,
+        phone: authData.user.user_metadata?.phone,
+        role: authData.user.user_metadata?.role || 'user',
+      })
 
       return { user: profile, session: authData.session }
     },
@@ -57,14 +114,16 @@ export const api = {
     register: async (userData) => {
       const normalizedEmail = cleanEmail(userData.email)
       const role = userData.role === 'admin' ? 'user' : userData.role || 'user'
+      const name = cleanText(userData.name)
+      const phone = cleanText(userData.phone) || null
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: normalizedEmail,
         password: userData.password,
         options: {
           data: {
-            name: userData.name.trim(),
-            phone: userData.phone?.trim() || null,
+            name,
+            phone,
             role,
           },
         },
@@ -73,36 +132,33 @@ export const api = {
       if (authError) throw new Error(authError.message || 'Registration failed')
       if (!authData.user) throw new Error('Registration failed. Please try again.')
 
-      const existingProfile = await getProfileByEmail(normalizedEmail)
-      if (existingProfile) {
-        return { user: existingProfile, session: authData.session }
+      let profile = null
+      try {
+        profile = await createProfileForAuthUser(authData.user, {
+          name,
+          email: normalizedEmail,
+          phone,
+          role,
+        })
+      } catch (error) {
+        if (authData.session) throw error
       }
 
-      const profilePayload = {
-        id: authData.user.id,
-        name: userData.name.trim(),
-        email: normalizedEmail,
-        phone: userData.phone?.trim() || null,
-        role,
+      return {
+        user: profile,
+        session: authData.session,
+        requiresEmailConfirmation: !authData.session,
       }
-
-      const profile = requireSingle(
-        await supabase.from(USERS_TABLE).insert(profilePayload).select('*').single(),
-        'Account was created, but the profile could not be saved.'
-      )
-
-      return { user: profile, session: authData.session }
     },
 
     getProfile: async () => {
       const authUser = await getCurrentAuthUser()
-      const profile = await getProfileByEmail(authUser.email)
-
-      if (!profile) {
-        throw new Error('Account profile was not found. Please contact an administrator.')
-      }
-
-      return profile
+      return createProfileForAuthUser(authUser, {
+        email: authUser.email,
+        name: authUser.user_metadata?.name,
+        phone: authUser.user_metadata?.phone,
+        role: authUser.user_metadata?.role || 'user',
+      })
     },
 
     logout: async () => {
