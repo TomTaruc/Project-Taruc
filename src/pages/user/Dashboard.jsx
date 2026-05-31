@@ -117,7 +117,7 @@ const Dashboard = () => {
               <Calendar className="w-5 h-5 text-gray-500" />
               Recent Appointments
             </h2>
-            <Link to="/user/appointments" className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
+            <Link to="/user/my-appointments" className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
               View All <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -148,7 +148,7 @@ const Dashboard = () => {
               <div className="p-8 text-center text-gray-500">
                 <FileText className="w-10 h-10 mx-auto text-gray-300 mb-3" />
                 <p>No recent appointments found.</p>
-                <Link to="/user/book" className="text-blue-600 hover:underline mt-2 inline-block">Book a session today</Link>
+                <Link to="/user/book-appointment" className="text-blue-600 hover:underline mt-2 inline-block">Book a session today</Link>
               </div>
             )}
           </div>
