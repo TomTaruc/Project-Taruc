@@ -41,10 +41,22 @@ const Register = () => {
 
     setIsSubmitting(true)
     try {
-      const registrationData = { ...formData, email: formData.email.trim(), role: 'user' }
+      const registrationData = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        password: formData.password,
+        role: 'user',
+      }
       const result = await register(registrationData)
 
       if (result.success) {
+        if (result.requiresEmailConfirmation) {
+          showToast.success(result.message)
+          navigate('/login', { replace: true })
+          return
+        }
+
         showToast.success('Account created successfully!')
         navigate('/user/dashboard', { replace: true })
       } else {
